@@ -1,0 +1,44 @@
+{
+	"cve": [
+		{
+			"id": "cve-2018-0001",
+			"os": "windows",
+			"version": "7"
+		},
+		{
+                        "id": "cve-2018-0022",
+                        "os": "windows",
+			"version": "7"
+                },
+		{
+                        "id": "cve-2019-1111",
+                        "os": "linux",
+			"version": "debian"
+                },
+		{
+                        "id": "cve-2019-2222",
+                        "os": "windows",
+			"version": "10"
+                },
+		{
+                        "id": "cve-2020-0011",
+                        "os": "linux",
+			"version": "debian"
+                },
+		{
+                        "id": "cve-2020-2222",
+                        "os": "linux",
+			"version": "kali"
+                },
+		{
+                        "id": "cve-2020-7777",
+                        "os": "windows",
+			"version": "10"
+                },
+		{
+                        "id": "cve-2021-0001",
+                        "os": "windows",
+			"version": "7"
+                }
+	]
+}

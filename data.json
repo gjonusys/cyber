@@ -1,0 +1,19 @@
+{
+	"instancesCount": 10,
+	"maxRam": 2048,
+	"maxStorage": 4096,
+	"onlyWindows": false,
+	"onlyLinux": true,
+	"cve": [
+		{
+			"id": "cve-2019-1111"
+		},
+		{
+			"id": "cve-2020-2222"
+		},
+		{
+			"id": "cve-2018-0001"
+		}
+	],
+	"generateFile": true
+}
