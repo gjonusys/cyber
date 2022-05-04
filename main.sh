@@ -153,6 +153,117 @@ function willBeEnoughCves () {
         fi
 };
 
+function isThereCveFor () {
+        echo -e "\t\t[Decision] Is there a CVE for $1?" >$(tty)
+        local vm_purpose=$1
+        local vm_os=$2
+        shift
+        shift
+        local arr=("$@")
+        for i in "${arr[@]}"
+        do
+                if [[ "$i" = "$vm_os" ]]
+                then
+                        echo -e "\t\t[LogicLink] Yes" >$(tty)
+                        echo "0" && return 0
+                fi
+        done
+        echo -e "\t\t[Decision] No" >$(tty)
+        echo "1" && return 1
+};
+
+function moreThanOneCveFor () {
+        echo -e "\t\t[Decision] Are there more than one unique CVE for $1?" >$(tty)
+        local vm_purpose=$1
+        local vm_os=$2
+        local count=0
+        shift
+        shift
+        local arr=("$@")
+        for i in "${arr[@]}"
+        do
+                if [[ "$i" = "$vm_os" ]]
+                then
+                        count=$((count+1));
+                fi
+        done
+        if [[ "$count" -gt 1 ]]
+        then
+                echo -e "\t\t[LogicLink] Yes" >$(tty)
+                echo "0" & return 0
+        elif [[ "$count" -eq 1 ]]
+        then
+                echo -e "\t\t[LogicLink] No" >$(tty)
+                echo "1" && return 1
+        else
+                echo "2" && return 2
+        fi
+};
+
+function takeThatOnlyAvailableCveFromUserInput () {
+        echo -e "\t\t[Action] Assign a CVE for $1 from the only one input" >$(tty)
+        local vm_os=$2
+        local userCveCount=$3
+        local allCveCount=$4
+        for (( i=0; i<$userCveCount; i++ ))
+        do
+                varUserCveId=$(cat ./data.json | jq -r .cve[$i].id)
+                for (( j=0; j<$allCveCount; j++ ))
+                do
+                        varCveId=$(cat ./cve_list.json | jq -r .cve[$j].id)
+                        varCveVersion=$(cat ./cve_list.json | jq -r .cve[$j].version)
+                        if [[ "$varUserCveId" = "$varCveId" ]] && [[ "$vm_os" = "$varCveVersion" ]]
+                        then
+                                echo "$varUserCveId" && return 0
+                        fi
+                done
+        done
+        echo "1" && return 1
+};
+
+function isThereANeedFor () {
+        echo -e "\t\t[Decision] Is there a need for $1?" >$(tty)
+        local point=$2
+        local answer=$(cat ./data.json | jq -r .$point)
+        if [[ "$answer" = 'true' ]]
+        then
+                echo -e "\t\t[LogicLink] Yes" >$(tty)
+                echo "0" && return 0
+        elif [[ "$answer" = 'false' ]]
+        then
+                echo -e "\t\t[LogicLink] No" >$(tty)
+                echo "1" && return 1
+        else
+                echo -e "\t\t[LogicLink] Unknown" >$(tty)
+                echo "2" && return 2
+        fi
+};
+
+function takeRandomCveFor () {
+        echo -e "\t\t[Action] Assign a random CVE for $1" >$(tty)
+        local vm_version=$2
+        local allCveCount=$3
+        local count=0
+        declare -A goodCves
+        for (( i=0; i<$allCveCount; i++ ))
+        do
+                varCveVersion=$(cat ./cve_list.json | jq -r .cve[$i].version)
+                if [[ "$vm_version" = "$varCveVersion" ]]
+                then
+                        varCveId=$(cat ./cve_list.json | jq -r .cve[$i].id)
+                        goodCves[$count]=$varCveId
+                        count=$((count+1))
+                fi
+        done
+        position=$(( ($RANDOM % 3) ))
+        if [ ! -z "${goodCves[$position]}" ]
+        then
+                echo "${goodCves[$position]}" && return 0
+        else
+                echo "1" && return 1
+        fi
+};
+
 function username () {
         echo "admin"
 };
@@ -167,18 +278,18 @@ function main () {
                 echo -e "[Process] Main process \t($(date))"
                 echo -e "[Stage] The user \"$USER\" has started the process"
                 echo -e "[AutomaticLink] Transition"
-                echo -e "[Stage] ${BOLD}Requirements check${NONE}"
+                echo -e "[LinkedProcess] ${BOLD}Requirements check START${NONE}"
                 if (( $(areFilesAvailable) == "0" ))
                 then
                         if (( $(isJqInstalled "") == "0" ))
                         then
-                                echo -e "\t[AutomaticLink] Transition\n[Stage] ${BOLD}Requirements are appropriate${NONE}"
+                                echo -e "\t[AutomaticLink] Transition\n\t[Stage] Requirements are appropriate\n[LinkedProcess] ${BOLD}Requirements check END${NONE}"
                         else
                                 if (( $(wantToInstall) == "0" ))
                                 then
                                         if (( $(installJq) == "0" ))
                                         then
-                                                echo -e "\t[AutomaticLink] Transition\n[Stage] ${BOLD}Requirements are appropriate${NONE}"
+                                                echo -e "\t[AutomaticLink] Transition\n\t[Stage] Requirements are appropriate\n[LinkedProcess] ${BOLD}Requirements check END${NONE}"
                                         else
                                                 echo -e "${RED}Install JQ manually and restart the program.${NONE}" && exit 1
                                         fi
@@ -199,11 +310,13 @@ function main () {
                 maxStorage=$(echo $data | jq .maxStorage)
                 cveCount=$(echo $data | jq .cve[].id | wc -l)
                 allCveCount=$(echo $cveList | jq .cve[].id | wc -l)
+                userCveList=$(echo $data | jq -r .cve[].id)
         #Data expose
                 #dataExpose
         #VM Data generation
                 declare -A instances
                 declare -A allOSes
+                declare -A allVersions
                 for (( i=0; i<$instancesCount; i++ ))
                 do
                         for (( k=0; k<$allCveCount; k++ ))
@@ -221,6 +334,7 @@ function main () {
                                         instances[$finalPosition,'os']=$(echo $cveList | jq -r .cve[$k].os)
                                         allOSes[$i]=${instances[$finalPosition,'os']}
                                         instances[$finalPosition,'version']=$(echo $cveList | jq -r .cve[$k].version)
+                                        allVersions[$i]=${instances[$finalPosition,'version']}
                                         instances[$finalPosition,'user']=$(username)
                                         instances[$finalPosition,'pass']=$(password)
                                         break
@@ -236,7 +350,7 @@ function main () {
                         fi
                 done
         #Logic
-                echo -e "[Stage] ${BOLD}Base analysis${NONE}"
+                echo -e "[LinkedProcess] ${BOLD}Base analysis${NONE}"
                 if (( $(isOnlyWindows "${allOSes[@]}") == "0" ))
                 then
                         if (( $(isThereANeedForDifferentOS "$(echo $data | jq -r .needForDifferentOS)") == 0 ))
@@ -257,12 +371,122 @@ function main () {
                         else
                                 if (( $(willBeEnoughCves "$cveCount" "$instancesCount") == 0 ))
                                 then
-                                        echo ""
-                                else
-                                        echo ""
+                                        echo -e "\t[AutomaticLink] Transition\n\t[LinkedProcess] ${BOLD}Webserver${NONE}\t($(date))"
+                                        if (( $(isThereANeedFor "WEBSERVER" "webserver") == 0 ))
+                                        then
+                                                if (( $(isThereCveFor "WEBSERVER" "debian" "${allVersions[@]}") == 0 ))
+                                                then
+                                                        if (( $(moreThanOneCveFor "WEBSERVER" "debian" "${allVersions[@]}") == 0 ))
+                                                        then
+                                                                echo "reiks paimt random budu is user'io pateikto saraso"
+                                                        else
+                                                                webserverID=$(takeThatOnlyAvailableCveFromUserInput "WEBSERVER" "debian" "$cveCount" "$allCveCount")
+                                                                if (( "$webserverID" == "1" )) || [ -z "$webserverID" ]
+                                                                then
+                                                                        echo "error"
+                                                                else
+                                                                        echo -e "\t\t[Stage] ${GREEN}WebserverID: $webserverID ${NONE}" >$(tty)
+                                                                fi
+                                                        fi
+                                                fi
+                                        else
+                                                webserverID=$(echo "none")
+                                                echo -e "\t\t[Stage] ${GREEN}WebserverID: $webserverID ${NONE}" >$(tty)
+                                        fi
+                                        if (( $(isThereANeedFor "WORDPRESS" "wordpress") == 0 ))
+                                        then
+                                                if (( $(isThereCveFor "WORDPRESS" "wordpress" "${allVersions[@]}") == 0 ))
+                                                then
+                                                        if (( $(moreThanOneCveFor "WORDPRESS" "wordpress" "${allVersions[@]}") == 0 ))
+                                                        then
+                                                                echo "reiks paimt random budu is user'io pateikto saraso"
+                                                        else
+                                                                wordpressID=$(takeThatOnlyAvailableCveFromUserInput "WORDPRESS" "wordpress" "$cveCount" "$allCveCount")
+                                                                if (( "$wordpressID" == "1" )) || [ -z "$wordpressID" ]
+                                                                then
+                                                                        echo "error"
+                                                                else
+                                                                        echo -e "\t\t[Stage] ${GREEN}WordpressID: $wordpressID ${NONE}" >$(tty)
+                                                                fi
+                                                        fi
+                                                else
+                                                        wordpressID=$(takeRandomCveFor "WORDPRESS" "wordpress" "$allCveCount")
+                                                        if (( "$wordpressID" == "1" )) || [ -z "$wordpressID" ]
+                                                        then
+                                                                echo "error"
+                                                        else
+                                                                echo -e "\t\t[Stage] ${GREEN}WordpressID: $wordpressID ${NONE}" >$(tty)
+                                                        fi
+                                                fi
+                                        else
+                                                wordpressID=$(echo "none")
+                                                echo -e "\t\t[Stage] ${GREEN}WordpressID: $wordpressID ${NONE}" >$(tty)
+                                        fi
+                                        if (( $(isThereANeedFor "APACHE" "apache") == 0 ))
+                                        then
+                                                if (( $(isThereCveFor "APACHE" "apache" "${allVersions[@]}") == 0 ))
+                                                then
+                                                        if (( $(moreThanOneCveFor "APACHE" "apache" "${allVersions[@]}") == 0 ))
+                                                        then
+                                                                echo "reiks paimt random budu is user'io pateikto saraso"
+                                                        else
+                                                                apacheID=$(takeThatOnlyAvailableCveFromUserInput "APACHE" "apache" "$cveCount" "$allCveCount")
+                                                                if (( "$apacheID" == "1" )) || [ -z "$apacheID" ]
+                                                                then
+                                                                        echo "error"
+                                                                else
+                                                                        echo -e "\t\t[Stage] ${GREEN}ApacheID: $apacheID ${NONE}" >$(tty)
+                                                                fi
+                                                        fi
+                                                else
+                                                        apacheID=$(takeRandomCveFor "APACHE" "apache" "$allCveCount")
+                                                        if (( "$apacheID" == "1" )) || [ -z "$apacheID" ]
+                                                        then
+                                                                echo "error"
+                                                        else
+                                                                echo -e "\t\t[Stage] ${GREEN}ApacheID: $apacheID ${NONE}" >$(tty)
+                                                        fi
+                                                fi
+                                        else
+                                                apacheID=$(echo "none")
+                                                echo -e "\t\t[Stage] ${GREEN}ApacheID: $apacheID ${NONE}" >$(tty)
+                                        fi
+                                        echo -e "\t[LinkedProcess] ${BOLD}Webserver end${NONE}"
+                                        echo -e "\t[AutomaticLink] Transition\n\t[LinkedProcess] ${BOLD}Database start${NONE}"
+                                        if (( $(isThereANeedFor "DATABASE" "database") == 0 ))
+                                        then
+                                                if (( $(isThereCveFor "DATABASE" "debian" "${allVersions[@]}") == 0 ))
+                                                then
+                                                        if (( $(moreThanOneCveFor "DAATABASE" "debian" "${allVersions[@]}") == 0 ))
+                                                        then
+                                                                echo "reiks paimt random budu is user'io pateikto saraso"
+                                                        else
+                                                                databaseID=$(takeThatOnlyAvailableCveFromUserInput "DATABASE" "debian" "$cveCount" "$allCveCount")
+                                                                if (( "$databaseID" == "1" )) || [ -z "$databaseID" ]
+                                                                then
+                                                                        echo "error"
+                                                                else
+                                                                        echo -e "\t\t[Stage] ${GREEN}DatabaseID: $databaseID ${NONE}" >$(tty)
+                                                                fi
+                                                        fi
+                                                else
+                                                        databaseID=$(takeRandomCveFor "DATABASE" "debian" "$allCveCount")
+                                                        if (( "$apacheID" == "1" )) || [ -z "$apacheID" ]
+                                                        then
+                                                                echo "error"
+                                                        else
+                                                                echo -e "\t\t[Stage] ${GREEN}DAtabaseID: $databaseID ${NONE}" >$(tty)
+                                                        fi
+                                                fi
+                                        else
+                                                databaseID=$(echo "none")
+                                                echo -e "\t\t[Stage] ${GREEN}DatabaseID: $databaseID ${NONE}" >$(tty)
+                                        fi
                                 fi
-                        fi
-                fi
+                        fi #END OF isOnlyLinux
+                fi #END OF isOnlyWindows
+
+
 
         #VM Data expose
                 #for (( i=0; i<${instancesCount}; i++ ))
