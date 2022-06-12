@@ -11,7 +11,7 @@ function checkIfJqIsAvailable () {
                 echo -e "${RED}Error${NONE}: JQ could not be found. Wait a little bit..." >&2
                 apt-get install jq -y
         fi
-}
+};
 
 function dataExpose () {
         echo -e "The number of instances: ${RED}$instancesCount${NONE}"
@@ -58,7 +58,7 @@ function isJqInstalled () {
         echo -e "$1\t[Decision] Is JQ installed?" >$(tty)
         if [[ -x "$(command -v jq)" ]]
         then
-                echo -e "$1\t{LogicLink] Yes" >$(tty)
+                echo -e "$1\t[LogicLink] Yes" >$(tty)
                 echo "0" && return 0
         else
                 echo -e "$1\t[LogicLink] No" >$(tty)
@@ -143,7 +143,7 @@ function isThereANeedForDifferentOS () {
 function willBeEnoughCves () {
         echo -e "\t[Decision] Will be enough CVEs for all VMs?" >&$(tty)
         local result=$(echo $(( $1 * 100 / $2 )))
-        if [[ "$result" -ge 50 ]]
+        if [[ "$result" -ge 90 ]]
         then
                 echo -e "\t[LogicLink] Yes" >$(tty)
                 echo "0" && return 0
@@ -264,6 +264,101 @@ function takeRandomCveFor () {
         fi
 };
 
+function willUserInputByHimself () {
+        read -p "$(echo -e "\t")[UserInput] y/n? " userInput >$(tty)
+        if [[ "$userInput" = 'y' ]]
+        then
+                echo -e "\t[LogicLink] Yes" >$(tty)
+                echo "1" && return 1
+        elif [[ "$userInput" = 'n' ]]
+        then
+                echo -e "\t[LogicLink] No" >$(tty)
+                echo "0" && return 0
+        else
+                echo -e "\t[LogicLink] No" >$(tty)
+                echo "2" && return 2
+        fi
+};
+
+function howManyCVEsNeeded () {
+        echo -e "\t\t[Action] Calculation of how many CVEs are needed" >$(tty)
+        local result=$(echo $(( $1 * 100 / $2 )))
+        #pirmas yra cveCount o antras yra instancesCount
+        local minimumReq=$(echo $(( ($2 + 2 - 1) / 2 )))
+        local needed=$(echo $(( $minimumReq - $1 )))
+        echo -e "\t\t[Result] The cyber range needs $needed more CVE(-s)" >$(tty)
+        if [ -z "$needed" ]
+        then
+                echo -e "ERROR" && return 1
+        else
+                echo -e "$needed" && return 0
+        fi
+};
+
+function chooseCVEs () {
+        echo -e "\t\t[Action] Choosing random CVEs" >$(tty)
+        j=0
+        result=""
+        declare -A allIDs
+        for (( i=0; i<$1; i++))
+        do
+                os=$(echo $3 | jq -r .cve[$i].os)
+                if [[ "$os" = 'windows' ]] || [[ "$os" = 'linux' ]]
+                then
+                        allIDs[$j]=$(echo $3 | jq -r .cve[$i].id)
+                        ((j++))
+                fi
+        done
+
+        if [[ "$4" != 'BLANK' ]]
+        then
+                position=$(( $(echo $RANDOM | head -c 2)%j ))
+                result="${result} ${allIDs[$position]}"
+                echo -e "\t\t[Result] Chosen CVE(-s): $result" >$(tty)
+                if [ -z "$result" ]
+                then
+                        echo "1" && return 1
+                else
+                        echo -e "$result" && return 0
+                fi
+        fi
+
+        for (( k=0; k<$2; k++ ))
+        do
+                position=$(( $(echo $RANDOM | head -c 2)%$j ))
+                result="${result} ${allIDs[$position]}"
+        done
+        echo -e "\t\t[Result] Chosen CVE(-s): $result" >$(tty)
+        if [ -z "$result" ]
+        then
+                echo "1" && return 1
+        else
+                echo -e "$result" && return 0
+        fi
+
+};
+
+function assignCVEs () {
+        echo -e "\t\t[Action] Assign chosen CVEs" >$(tty)
+        cveList=$3
+        cveListOld=$cveList
+
+        for (( i=1; i<=$1; i++ ))
+        do
+                id=$(echo $2 | cut -d " " -f$i)
+                cveList="${cveList} ${id}"
+        done
+
+        cveList=$(echo "${cveList}" | tr ' ' '\n')
+        if [[ "$cveList" != "$cveListOld" ]]
+        then
+                echo -e "\t\t[Result] New CVEs are assigned" >$(tty)
+                echo "$cveList" && return 0
+        else
+                echo "1" && return 1
+        fi
+}
+
 function username () {
         echo "admin"
 };
@@ -355,136 +450,99 @@ function main () {
                 then
                         if (( $(isThereANeedForDifferentOS "$(echo $data | jq -r .needForDifferentOS)") == 0 ))
                         then
-                                echo ""
+                                echo -e "\t[Decision] There are inputed CVEs for only Microsoft Windows OS. Will you input more CVEs by yourself?"
+                                if (( $(willUserInputByHimself) == "0"  ))
+                                then
+                                        echo -e "\t[AutomaticLink] Transition\n\t[LinkedProcess] ${BOLD}CVEs auto-generation START${NONE}\t($(date))"
+                                        numberOfNeededCVEs=1
+                                        echo -e "\t\t[Action] Calculation of how many CVEs are needed\n\t\t[Result] The cyber range needs ${numberOfNeededCVEs} CVE(-s) for other OS"
+                                        detectedOS="windows"
+                                        echo -e "\t\t[Action] Detection of a dominating OS\n\t\t[Result] Dominating OS is Microsoft Windows"
+                                        chosenCVEs=$(chooseCVEs "$allCveCount" "$numberOfNeededCVEs" "$cveList" "$detectedOS")
+                                        if [ -z "$chosenCVEs" ] || [[ "$chosenCVEs" = "1" ]]
+                                        then
+                                                echo -e "\t\t[Alert] ${RED}ERROR: Choosing random CVEs failed. Exiting...${NONE}" && exit 1
+                                        else
+                                                userCveList=$(assignCVEs "$numberOfNeededCVEs" "$chosenCVEs" "$userCveList")
+                                                echo -e "\t\t[AutomaticLink] Transition\n\t\t[Stage] CVEs auto-generation went well\n\t[LinkedProcess] ${BOLD}CVEs auto-generation END${NONE}"
+                                        fi
+                                else
+                                        echo -e "\t\t[Stage] User will input CVEs by himself\n\tEXITING..." && exit 1
+                                fi
                         else
                                 if (( $(willBeEnoughCves "$cveCount" "$instancesCount") == 0 ))
                                 then
-                                        echo ""
+                                        echo "\t[AutomaticLink] Transition\n\t[Stage] Base Analysis OK\n[LinkedProcess] ${BOLD}Base analysis END${NONE}"
                                 else
-                                        echo ""
+                                        echo -e "\t[Decision] There are not enough CVEs. Will you input them by yourself?"
+                                        if (( $(willUserInputByHimself) == "0" ))
+                                        then
+                                                echo -e "\t[AutomaticLink] Transition\n\t[LinkedProcess] ${BOLD}CVEs auto-generation START${NONE}\t($(date))"
+                                                numberOfNeededCVEs=$(howManyCVEsNeeded "$cveCount" "$instancesCount")
+                                                chosenCVEs=$(chooseCVEs "$allCveCount" "$numberOfNeededCVEs" "$cveList" "BLANK")
+                                                if [ -z "$chosenCVEs" ] || [[ "$chosenCVEs" = "1" ]]
+                                                then
+                                                        echo -e "\t\t[Alert] ERROR: Choosing random CVEs failed. Exiting...}" && exit 1
+                                                else
+                                                        userCveList=$(assignCVEs "$numberOfNeededCVEs" "$chosenCVEs" "$userCveList")
+                                                        echo -e "\t\t[AutomaticLink] Transition\n\t\t[Stage] CVEs auto-generation OK\n\t[LinkedProcess] ${BOLD}CVEs auto-generation END${NONE}"
+                                                fi
+                                        else
+                                                echo -e "\t\t[Stage] User will input CVEs by himself\n\tEXITING..." && exit 1
+                                        fi
                                 fi
                         fi
                 else
                         if (( $(isOnlyLinux "${allOSes[@]}") == 0 ))
                         then
-                                echo ""
-                        else
-                                if (( $(willBeEnoughCves "$cveCount" "$instancesCount") == 0 ))
+                                if (( $(isThereANeedForDifferentOS "$(echo $data | jq -r .needForDifferentOS)") == 0 ))
                                 then
-                                        echo -e "\t[AutomaticLink] Transition\n\t[LinkedProcess] ${BOLD}Webserver${NONE}\t($(date))"
-                                        if (( $(isThereANeedFor "WEBSERVER" "webserver") == 0 ))
+                                        echo -e "\t[Decision] There are inputed CVEs for only Linux OS. Will you input more CVEs by yourself?"
+                                        if (( $(willUserInputByHimself) == 0 ))
                                         then
-                                                if (( $(isThereCveFor "WEBSERVER" "debian" "${allVersions[@]}") == 0 ))
+                                                echo -e "\t[AutomaticLink] Transition\n\t[LinkedProcess] ${BOLD}CVEs auto-generation start${NONE}\t($(date))"
+                                                numberOfNeededCVEs=1
+                                                echo -e "\t\t[Action] Calculation of how many CVEs are needed\n\t\t[Result] The cyber range needs ${numberOfNeededCVEs} CVE(-s) for other OS"
+                                                detectedOS="linux"
+                                                echo -e "\t\t[Action] Detection of a dominating OS\n\t\t[Result] Dominating OS is Linux"
+                                                chosenCVEs=$(chooseCVEs "$allCveCount" "$numberOfNeededCVEs" "$cveList" "$detectedOS")
+                                                if [ -z "$chosenCVEs" ] || [[ "$chosenCVEs" = "1" ]]
                                                 then
-                                                        if (( $(moreThanOneCveFor "WEBSERVER" "debian" "${allVersions[@]}") == 0 ))
-                                                        then
-                                                                echo "reiks paimt random budu is user'io pateikto saraso"
-                                                        else
-                                                                webserverID=$(takeThatOnlyAvailableCveFromUserInput "WEBSERVER" "debian" "$cveCount" "$allCveCount")
-                                                                if (( "$webserverID" == "1" )) || [ -z "$webserverID" ]
-                                                                then
-                                                                        echo "error"
-                                                                else
-                                                                        echo -e "\t\t[Stage] ${GREEN}WebserverID: $webserverID ${NONE}" >$(tty)
-                                                                fi
-                                                        fi
+                                                        echo -e "\t\t[Alert] ${RED}ERROR: Choosing random CVEs failed. Exiting...${NONE}" && exit 1
+                                                else
+                                                        userCveList=$(assignCVEs "$numberOfNeededCVEs" "$chosenCVEs" "$userCveList")
+                                                        echo -e "\t\t[AutomaticLink] Transition\n\t\t[Stage] CVEs auto-generation went well\n\t[LinkedProcess] ${BOLD}CVEs auto-generation END${NONE}"
                                                 fi
                                         else
-                                                webserverID=$(echo "none")
-                                                echo -e "\t\t[Stage] ${GREEN}WebserverID: $webserverID ${NONE}" >$(tty)
+                                                echo -e "\t\t[Stage] User will input CVEs by himself\n\tEXITING..." && exit 1
                                         fi
-                                        if (( $(isThereANeedFor "WORDPRESS" "wordpress") == 0 ))
+                                else
+                                        if (( $(willBeEnoughCves "$cveCount" "$instancesCount") == 0 ))
                                         then
-                                                if (( $(isThereCveFor "WORDPRESS" "wordpress" "${allVersions[@]}") == 0 ))
+                                                echo -e "\t[AutomaticLink] Transition\n\t[Stage] Base Analysis OK\n[LinkedProcess] ${BOLD}Base analysis END${NONE}"
+                                        else
+                                                echo -e "\t[Decision] There are not enough CVEs. Will you input them by yourself?"
+                                                if (( $(willUserInputByHimself) == "0" ))
                                                 then
-                                                        if (( $(moreThanOneCveFor "WORDPRESS" "wordpress" "${allVersions[@]}") == 0 ))
+                                                        echo -e "\t[AutomaticLink] Transition\n\t[LinkedProcess] ${BOLD}CVEs auto-generation START${NONE}\t($(date))"
+                                                        numberOfNeededCVEs=$(howManyCVEsNeeded "$cveCount" "$instancesCount")
+                                                        chosenCVEs=$(chooseCVEs "$allCveCount" "$numberOfNeededCVEs" "$cveList" "BLANK")
+                                                        if [ -z "$chosenCVEs" ] || [[ "$chosenCVEs" = "1" ]]
                                                         then
-                                                                echo "reiks paimt random budu is user'io pateikto saraso"
+                                                                echo -e "\t\t[Alert] ERROR: Choosing random CVEs failed. Exiting..." && exit 1
                                                         else
-                                                                wordpressID=$(takeThatOnlyAvailableCveFromUserInput "WORDPRESS" "wordpress" "$cveCount" "$allCveCount")
-                                                                if (( "$wordpressID" == "1" )) || [ -z "$wordpressID" ]
-                                                                then
-                                                                        echo "error"
-                                                                else
-                                                                        echo -e "\t\t[Stage] ${GREEN}WordpressID: $wordpressID ${NONE}" >$(tty)
-                                                                fi
+                                                                userCveList=$(assignCVEs "$numberOfNeededCVEs" "$chosenCVEs" "$userCveList")
+                                                                echo -e "\t\t[AutomaticLink] Transition\n\t\t[Stage] CVEs auto-generation OK\n\t[LinkedProcess] ${BOLD}CVEs auto-generation END${NONE}"
                                                         fi
                                                 else
-                                                        wordpressID=$(takeRandomCveFor "WORDPRESS" "wordpress" "$allCveCount")
-                                                        if (( "$wordpressID" == "1" )) || [ -z "$wordpressID" ]
-                                                        then
-                                                                echo "error"
-                                                        else
-                                                                echo -e "\t\t[Stage] ${GREEN}WordpressID: $wordpressID ${NONE}" >$(tty)
-                                                        fi
+                                                        echo -e "\t\t[Stage] User will input CVEs by himself\n\tEXITING..." && exit 1
                                                 fi
-                                        else
-                                                wordpressID=$(echo "none")
-                                                echo -e "\t\t[Stage] ${GREEN}WordpressID: $wordpressID ${NONE}" >$(tty)
-                                        fi
-                                        if (( $(isThereANeedFor "APACHE" "apache") == 0 ))
-                                        then
-                                                if (( $(isThereCveFor "APACHE" "apache" "${allVersions[@]}") == 0 ))
-                                                then
-                                                        if (( $(moreThanOneCveFor "APACHE" "apache" "${allVersions[@]}") == 0 ))
-                                                        then
-                                                                echo "reiks paimt random budu is user'io pateikto saraso"
-                                                        else
-                                                                apacheID=$(takeThatOnlyAvailableCveFromUserInput "APACHE" "apache" "$cveCount" "$allCveCount")
-                                                                if (( "$apacheID" == "1" )) || [ -z "$apacheID" ]
-                                                                then
-                                                                        echo "error"
-                                                                else
-                                                                        echo -e "\t\t[Stage] ${GREEN}ApacheID: $apacheID ${NONE}" >$(tty)
-                                                                fi
-                                                        fi
-                                                else
-                                                        apacheID=$(takeRandomCveFor "APACHE" "apache" "$allCveCount")
-                                                        if (( "$apacheID" == "1" )) || [ -z "$apacheID" ]
-                                                        then
-                                                                echo "error"
-                                                        else
-                                                                echo -e "\t\t[Stage] ${GREEN}ApacheID: $apacheID ${NONE}" >$(tty)
-                                                        fi
-                                                fi
-                                        else
-                                                apacheID=$(echo "none")
-                                                echo -e "\t\t[Stage] ${GREEN}ApacheID: $apacheID ${NONE}" >$(tty)
-                                        fi
-                                        echo -e "\t[LinkedProcess] ${BOLD}Webserver end${NONE}"
-                                        echo -e "\t[AutomaticLink] Transition\n\t[LinkedProcess] ${BOLD}Database start${NONE}"
-                                        if (( $(isThereANeedFor "DATABASE" "database") == 0 ))
-                                        then
-                                                if (( $(isThereCveFor "DATABASE" "debian" "${allVersions[@]}") == 0 ))
-                                                then
-                                                        if (( $(moreThanOneCveFor "DAATABASE" "debian" "${allVersions[@]}") == 0 ))
-                                                        then
-                                                                echo "reiks paimt random budu is user'io pateikto saraso"
-                                                        else
-                                                                databaseID=$(takeThatOnlyAvailableCveFromUserInput "DATABASE" "debian" "$cveCount" "$allCveCount")
-                                                                if (( "$databaseID" == "1" )) || [ -z "$databaseID" ]
-                                                                then
-                                                                        echo "error"
-                                                                else
-                                                                        echo -e "\t\t[Stage] ${GREEN}DatabaseID: $databaseID ${NONE}" >$(tty)
-                                                                fi
-                                                        fi
-                                                else
-                                                        databaseID=$(takeRandomCveFor "DATABASE" "debian" "$allCveCount")
-                                                        if (( "$apacheID" == "1" )) || [ -z "$apacheID" ]
-                                                        then
-                                                                echo "error"
-                                                        else
-                                                                echo -e "\t\t[Stage] ${GREEN}DAtabaseID: $databaseID ${NONE}" >$(tty)
-                                                        fi
-                                                fi
-                                        else
-                                                databaseID=$(echo "none")
-                                                echo -e "\t\t[Stage] ${GREEN}DatabaseID: $databaseID ${NONE}" >$(tty)
                                         fi
                                 fi
-                        fi #END OF isOnlyLinux
-                fi #END OF isOnlyWindows
+                        fi
+                fi
+
+
 
 
 
