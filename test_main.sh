@@ -577,7 +577,30 @@ function main () {
         echo -e "[Stage] The user \"$USER\" has started the process"
         echo -e "[LinkedProcess] Transition"
         requirementsCheck
-		baseAnalysis
+		if (( $(baseAnalysis) == 0 ))
+		then
+			echo -e "[AutomaticLink] Transition"
+		elif (( $(baseAnalysis) == 1 ))
+		then
+			echo -e "[AutomaticLink] Transition"
+			if (( $(baseAnalysis) == 0 ))
+			then
+				echo -e "[AutomaticLink] Transition"
+			elif (( $(baseAnalysis) == 1 ))
+			then
+				echo -e "[AutomaticLink] Transition"
+				if (( $(baseAnalysis) == 0 ))
+				then
+					echo -e "[AutomaticLink] Transition"
+				else
+					echo -e "[Alert] Error" && exit 1
+				fi
+			else
+				echo -e "[Alert] Error" && exit 1
+			fi
+		else
+			echo -e "[Alert] Error" && exit 1
+		fi
        
 
 
