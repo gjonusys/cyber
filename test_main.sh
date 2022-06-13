@@ -369,33 +369,33 @@ function password () {
 };
 
 function requirementsCheck () {
-                echo -e "[LinkedProcess] ${BOLD}Requirements check START${NONE}"
+                echo -e "[LinkedProcess] ${BOLD}Requirements check START${NONE}" >$(tty)
                 if (( $(areFilesAvailable) == "0" ))
                 then
                         if (( $(isJqInstalled "") == "0" ))
                         then
-                                echo -e "\t[AutomaticLink] Transition\n\t[Stage] Requirements are appropriate\n[LinkedProcess] ${BOLD}Requirements check END${NONE}"
+                                echo -e "\t[AutomaticLink] Transition\n\t[Stage] Requirements are appropriate\n[LinkedProcess] ${BOLD}Requirements check END${NONE}" >$(tty)
                         else
                                 if (( $(wantToInstall) == "0" ))
                                 then
                                         if (( $(installJq) == "0" ))
                                         then
-                                                echo -e "\t[AutomaticLink] Transition\n\t[Stage] Requirements are appropriate\n[LinkedProcess] ${BOLD}Requirements check END${NONE}"
+                                                echo -e "\t[AutomaticLink] Transition\n\t[Stage] Requirements are appropriate\n[LinkedProcess] ${BOLD}Requirements check END${NONE}" >$(tty)
                                         else
-                                                echo -e "${RED}Install JQ manually and restart the program.${NONE}" && exit 1
+                                                echo -e "${RED}Install JQ manually and restart the program.${NONE}" >$(tty) && exit 1
                                         fi
                                 else
-                                        echo -e "${RED}Install JQ manually and restart the program.${NONE}" && exit 1
+                                        echo -e "${RED}Install JQ manually and restart the program.${NONE}" >$(tty) && exit 1
                                 fi
                         fi
                 else
                         exit 1
                 fi
-                echo -e "[AutomaticLink] Transition"
+                echo -e "[AutomaticLink] Transition" >$(tty)
 };
 
 function baseAnalysis () {
-				echo -e "[LinkedProcess] ${BOLD}Base analysis${NONE}"
+				echo -e "[LinkedProcess] ${BOLD}Base analysis${NONE}" >$(tty)
 		
 		#Data gathering
                 data=$(cat ./data.json)
@@ -449,45 +449,45 @@ function baseAnalysis () {
                 then
                         if (( $(isThereANeedForDifferentOS "$(echo $data | jq -r .needForDifferentOS)") == 0 ))
                         then
-                                echo -e "\t[Decision] There are inputed CVEs for only Microsoft Windows OS. Will you input more CVEs by yourself?"
+                                echo -e "\t[Decision] There are inputed CVEs for only Microsoft Windows OS. Will you input more CVEs by yourself?" >$(tty)
                                 if (( $(willUserInputByHimself) == "0"  ))
                                 then
-                                        echo -e "\t[AutomaticLink] Transition\n\t[LinkedProcess] ${BOLD}CVEs auto-generation START${NONE}\t($(date))"
+                                        echo -e "\t[AutomaticLink] Transition\n\t[LinkedProcess] ${BOLD}CVEs auto-generation START${NONE}\t($(date))" >$(tty)
                                         numberOfNeededCVEs=1
-                                        echo -e "\t\t[Action] Calculation of how many CVEs are needed\n\t\t[Result] The cyber range needs ${numberOfNeededCVEs} CVE(-s) for other OS"
+                                        echo -e "\t\t[Action] Calculation of how many CVEs are needed\n\t\t[Result] The cyber range needs ${numberOfNeededCVEs} CVE(-s) for other OS" >$(tty)
                                         detectedOS="windows"
-                                        echo -e "\t\t[Action] Detection of a dominating OS\n\t\t[Result] Dominating OS is Microsoft Windows"
+                                        echo -e "\t\t[Action] Detection of a dominating OS\n\t\t[Result] Dominating OS is Microsoft Windows" >$(tty)
                                         chosenCVEs=$(chooseCVEs "$allCveCount" "$numberOfNeededCVEs" "$cveList" "$detectedOS")
                                         if [ -z "$chosenCVEs" ] || [[ "$chosenCVEs" = "1" ]]
                                         then
-                                                echo -e "\t\t[Alert] ${RED}ERROR: Choosing random CVEs failed. Exiting...${NONE}" && exit 1
+                                                echo -e "\t\t[Alert] ${RED}ERROR: Choosing random CVEs failed. Exiting...${NONE}" >$(tty) && exit 1
                                         else
                                                 userCveList=$(assignCVEs "$numberOfNeededCVEs" "$chosenCVEs" "$userCveList")
-                                                echo -e "\t\t[AutomaticLink] Transition\n\t\t[Stage] CVEs auto-generation went well\n\t[LinkedProcess] ${BOLD}CVEs auto-generation END${NONE}"
+                                                echo -e "\t\t[AutomaticLink] Transition\n\t\t[Stage] CVEs auto-generation went well\n\t[LinkedProcess] ${BOLD}CVEs auto-generation END${NONE}" >$(tty)
                                         fi
                                 else
-                                        echo -e "\t\t[Stage] User will input CVEs by himself\n\tEXITING..." && exit 1
+                                        echo -e "\t\t[Stage] User will input CVEs by himself\n\tEXITING..." >$(tty) && exit 1
                                 fi
                         else
                                 if (( $(willBeEnoughCves "$cveCount" "$instancesCount") == 0 ))
                                 then
-                                        echo "\t[AutomaticLink] Transition\n\t[Stage] Base Analysis OK\n[LinkedProcess] ${BOLD}Base analysis END${NONE}"
+                                        echo "\t[AutomaticLink] Transition\n\t[Stage] Base Analysis OK\n[LinkedProcess] ${BOLD}Base analysis END${NONE}" >$(tty)
                                 else
-                                        echo -e "\t[Decision] There are not enough CVEs. Will you input them by yourself?"
+                                        echo -e "\t[Decision] There are not enough CVEs. Will you input them by yourself?" >$(tty)
                                         if (( $(willUserInputByHimself) == "0" ))
                                         then
-                                                echo -e "\t[AutomaticLink] Transition\n\t[LinkedProcess] ${BOLD}CVEs auto-generation START${NONE}\t($(date))"
+                                                echo -e "\t[AutomaticLink] Transition\n\t[LinkedProcess] ${BOLD}CVEs auto-generation START${NONE}\t($(date))" >$(tty)
                                                 numberOfNeededCVEs=$(howManyCVEsNeeded "$cveCount" "$instancesCount")
                                                 chosenCVEs=$(chooseCVEs "$allCveCount" "$numberOfNeededCVEs" "$cveList" "BLANK")
                                                 if [ -z "$chosenCVEs" ] || [[ "$chosenCVEs" = "1" ]]
                                                 then
-                                                        echo -e "\t\t[Alert] ERROR: Choosing random CVEs failed. Exiting...}" && exit 1
+                                                        echo -e "\t\t[Alert] ERROR: Choosing random CVEs failed. Exiting...}" >$(tty) && exit 1
                                                 else
                                                         userCveList=$(assignCVEs "$numberOfNeededCVEs" "$chosenCVEs" "$userCveList")
-                                                        echo -e "\t\t[AutomaticLink] Transition\n\t\t[Stage] CVEs auto-generation OK\n\t[LinkedProcess] ${BOLD}CVEs auto-generation END${NONE}"
+                                                        echo -e "\t\t[AutomaticLink] Transition\n\t\t[Stage] CVEs auto-generation OK\n\t[LinkedProcess] ${BOLD}CVEs auto-generation END${NONE}" >$(tty)
                                                 fi
                                         else
-                                                echo -e "\t\t[Stage] User will input CVEs by himself\n\tEXITING..." && exit 1
+                                                echo -e "\t\t[Stage] User will input CVEs by himself\n\tEXITING..." >$(tty) && exit 1
                                         fi
                                 fi
                         fi
@@ -496,73 +496,73 @@ function baseAnalysis () {
                         then
                                 if (( $(isThereANeedForDifferentOS "$(echo $data | jq -r .needForDifferentOS)") == 0 ))
                                 then
-                                        echo -e "\t[Decision] There are inputed CVEs for only Linux OS. Will you input more CVEs by yourself?"
+                                        echo -e "\t[Decision] There are inputed CVEs for only Linux OS. Will you input more CVEs by yourself?" >$(tty)
                                         if (( $(willUserInputByHimself) == 0 ))
                                         then
-                                                echo -e "\t[AutomaticLink] Transition\n\t[LinkedProcess] ${BOLD}CVEs auto-generation start${NONE}\t($(date))"
+                                                echo -e "\t[AutomaticLink] Transition\n\t[LinkedProcess] ${BOLD}CVEs auto-generation start${NONE}\t($(date))" >$(tty)
                                                 numberOfNeededCVEs=1
-                                                echo -e "\t\t[Action] Calculation of how many CVEs are needed\n\t\t[Result] The cyber range needs ${numberOfNeededCVEs} CVE(-s) for other OS"
+                                                echo -e "\t\t[Action] Calculation of how many CVEs are needed\n\t\t[Result] The cyber range needs ${numberOfNeededCVEs} CVE(-s) for other OS" >$(tty)
                                                 detectedOS="linux"
-                                                echo -e "\t\t[Action] Detection of a dominating OS\n\t\t[Result] Dominating OS is Linux"
+                                                echo -e "\t\t[Action] Detection of a dominating OS\n\t\t[Result] Dominating OS is Linux" >$(tty)
                                                 chosenCVEs=$(chooseCVEs "$allCveCount" "$numberOfNeededCVEs" "$cveList" "$detectedOS")
                                                 if [ -z "$chosenCVEs" ] || [[ "$chosenCVEs" = "1" ]]
                                                 then
-                                                        echo -e "\t\t[Alert] ${RED}ERROR: Choosing random CVEs failed. Exiting...${NONE}" && exit 1
+                                                        echo -e "\t\t[Alert] ${RED}ERROR: Choosing random CVEs failed. Exiting...${NONE}" >$(tty) && exit 1
                                                 else
                                                         userCveList=$(assignCVEs "$numberOfNeededCVEs" "$chosenCVEs" "$userCveList")
-                                                        echo -e "\t\t[AutomaticLink] Transition\n\t\t[Stage] CVEs auto-generation went well\n\t[LinkedProcess] ${BOLD}CVEs auto-generation END${NONE}"
+                                                        echo -e "\t\t[AutomaticLink] Transition\n\t\t[Stage] CVEs auto-generation went well\n\t[LinkedProcess] ${BOLD}CVEs auto-generation END${NONE}" >$(tty)
                                                 fi
                                         else
-                                                echo -e "\t\t[Stage] User will input CVEs by himself\n\tEXITING..." && exit 1
+                                                echo -e "\t\t[Stage] User will input CVEs by himself\n\tEXITING..." >$(tty) && exit 1
                                         fi
                                 else
                                         if (( $(willBeEnoughCves "$cveCount" "$instancesCount") == 0 ))
                                         then
-                                                echo -e "\t[AutomaticLink] Transition\n\t[Stage] Base Analysis OK\n[LinkedProcess] ${BOLD}Base analysis END${NONE}"
+                                                echo -e "\t[AutomaticLink] Transition\n\t[Stage] Base Analysis OK\n[LinkedProcess] ${BOLD}Base analysis END${NONE}" >$(tty)
                                         else
-                                                echo -e "\t[Decision] There are not enough CVEs. Will you input them by yourself?"
+                                                echo -e "\t[Decision] There are not enough CVEs. Will you input them by yourself?" >$(tty)
                                                 if (( $(willUserInputByHimself) == "0" ))
                                                 then
-                                                        echo -e "\t[AutomaticLink] Transition\n\t[LinkedProcess] ${BOLD}CVEs auto-generation START${NONE}\t($(date))"
+                                                        echo -e "\t[AutomaticLink] Transition\n\t[LinkedProcess] ${BOLD}CVEs auto-generation START${NONE}\t($(date))" >$(tty)
                                                         numberOfNeededCVEs=$(howManyCVEsNeeded "$cveCount" "$instancesCount")
                                                         chosenCVEs=$(chooseCVEs "$allCveCount" "$numberOfNeededCVEs" "$cveList" "BLANK")
                                                         if [ -z "$chosenCVEs" ] || [[ "$chosenCVEs" = "1" ]]
                                                         then
-                                                                echo -e "\t\t[Alert] ERROR: Choosing random CVEs failed. Exiting..." && exit 1
+                                                                echo -e "\t\t[Alert] ERROR: Choosing random CVEs failed. Exiting..." >$(tty) && exit 1
                                                         else
                                                                 userCveList=$(assignCVEs "$numberOfNeededCVEs" "$chosenCVEs" "$userCveList")
-                                                                echo -e "\t\t[AutomaticLink] Transition\n\t\t[Stage] CVEs auto-generation OK\n\t[LinkedProcess] ${BOLD}CVEs auto-generation END${NONE}"
+                                                                echo -e "\t\t[AutomaticLink] Transition\n\t\t[Stage] CVEs auto-generation OK\n\t[LinkedProcess] ${BOLD}CVEs auto-generation END${NONE}" >$(tty)
                                                         fi
                                                 else
-                                                        echo -e "\t\t[Stage] User will input CVEs by himself\n\tEXITING..." && exit 1
+                                                        echo -e "\t\t[Stage] User will input CVEs by himself\n\tEXITING..." >$(tty) && exit 1
                                                 fi
                                         fi
                                 fi
                         else
 								if (( $(willBeEnoughCves "$cveCount" "$instancesCount") == 0 ))
                                 then
-                                        echo -e "\t[AutomaticLink] Transition\n\t[Stage] Base Analysis OK\n[LinkedProcess] ${BOLD}Base analysis END${NONE}"
+                                        echo -e "\t[AutomaticLink] Transition\n\t[Stage] Base Analysis OK\n[LinkedProcess] ${BOLD}Base analysis END${NONE}" >$(tty)
                                 else
-                                        echo -e "\t[Decision] There are not enough CVEs. Will you input them by yourself?"
+                                        echo -e "\t[Decision] There are not enough CVEs. Will you input them by yourself?" >$(tty)
                                         if (( $(willUserInputByHimself) == "0" ))
                                         then
-                                                echo -e "\t[AutomaticLink] Transition\n\t[LinkedProcess] ${BOLD}CVEs auto-generation START${NONE}\t($(date))"
+                                                echo -e "\t[AutomaticLink] Transition\n\t[LinkedProcess] ${BOLD}CVEs auto-generation START${NONE}\t($(date))" >$(tty)
                                                 numberOfNeededCVEs=$(howManyCVEsNeeded "$cveCount" "$instancesCount")
                                                 chosenCVEs=$(chooseCVEs "$allCveCount" "$numberOfNeededCVEs" "$cveList" "BLANK")
                                                 if [ -z "$chosenCVEs" ] || [[ "$chosenCVEs" = "1" ]]
                                                 then
-                                                        echo -e "\t\t[Alert] ERROR: Choosing random CVEs failed. Exiting..." && exit 1
+                                                        echo -e "\t\t[Alert] ERROR: Choosing random CVEs failed. Exiting..." >$(tty) && exit 1
                                                 else
                                                         userCveList=$(assignCVEs "$numberOfNeededCVEs" "$chosenCVEs" "$userCveList")
-                                                        echo -e "\t\t[AutomaticLink] Transition\n\t\t[Stage] CVEs auto-generation OK\n\t[LinkedProcess] ${BOLD}CVEs auto-generation END${NONE}"
+                                                        echo -e "\t\t[AutomaticLink] Transition\n\t\t[Stage] CVEs auto-generation OK\n\t[LinkedProcess] ${BOLD}CVEs auto-generation END${NONE}" >$(tty)
                                                 fi
                                         else
-                                                echo -e "\t\t[Stage] User will input CVEs by himself\n\tEXITING..." && exit 1
+                                                echo -e "\t\t[Stage] User will input CVEs by himself\n\tEXITING..." >$(tty) && exit 1
                                         fi
                                 fi
 						fi
                 fi
-				echo -e "\t[LinkedProcess] Transition"
+				echo -e "\t[LinkedProcess] Transition" >$(tty)
 };
 
 function main () {
