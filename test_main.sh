@@ -464,17 +464,15 @@ function baseAnalysis () {
                                         else
                                                 userCveList=$(assignCVEs "$numberOfNeededCVEs" "$chosenCVEs" "$userCveList")
                                                 echo -e "\t\t[AutomaticLink] Transition\n\t\t[Stage] CVEs auto-generation went well\n\t[LinkedProcess] ${BOLD}CVEs auto-generation END${NONE}\n\t[AutomaticLink] Transition\n[LinkedProcess] ${BOLD}Base Analysis END${NONE}" >$(tty)
-												echo "1"
-										fi
+                                        fi
                                 else
                                         echo -e "\t\t[Stage] User will input CVEs by himself\n\tEXITING..." >$(tty) && exit 1
                                 fi
                         else
                                 if (( $(willBeEnoughCves "$cveCount" "$instancesCount") == 0 ))
                                 then
-                                        echo "\t[AutomaticLink] Transition\n\t[Stage] Base Analysis OK\n\t[AutomaticLink] Transition\n[LinkedProcess] ${BOLD}Base Analysis END${NONE}" >$(tty)
-										echo "0"
-								else
+                                        echo "\t[AutomaticLink] Transition\n\t[Stage] Base Analysis OK\n[LinkedProcess] ${BOLD}Base analysis END${NONE}\n\t[AutomaticLink] Transition\n[LinkedProcess] ${BOLD}Base Analysis END${NONE}" >$(tty)
+                                else
                                         echo -e "\t[Decision] There are not enough CVEs. Will you input them by yourself?" >$(tty)
                                         if (( $(willUserInputByHimself) == "0" ))
                                         then
@@ -487,8 +485,7 @@ function baseAnalysis () {
                                                 else
                                                         userCveList=$(assignCVEs "$numberOfNeededCVEs" "$chosenCVEs" "$userCveList")
                                                         echo -e "\t\t[AutomaticLink] Transition\n\t\t[Stage] CVEs auto-generation OK\n\t[LinkedProcess] ${BOLD}CVEs auto-generation END${NONE}\n\t[AutomaticLink] Transition\n[LinkedProcess] ${BOLD}Base Analysis END${NONE}" >$(tty)
-														echo "1"
-												fi
+                                                fi
                                         else
                                                 echo -e "\t\t[Stage] User will input CVEs by himself\n\tEXITING..." >$(tty) && exit 1
                                         fi
@@ -514,8 +511,7 @@ function baseAnalysis () {
                                                 else
                                                         userCveList=$(assignCVEs "$numberOfNeededCVEs" "$chosenCVEs" "$userCveList")
                                                         echo -e "\t\t[AutomaticLink] Transition\n\t\t[Stage] CVEs auto-generation went well\n\t[LinkedProcess] ${BOLD}CVEs auto-generation END${NONE}\n\t[AutomaticLink] Transition\n[LinkedProcess] ${BOLD}Base Analysis END${NONE}" >$(tty)
-														echo "1"
-												fi
+                                                fi
                                         else
                                                 echo -e "\t\t[Stage] User will input CVEs by himself\n\tEXITING..." >$(tty) && exit 1
                                         fi
@@ -523,7 +519,6 @@ function baseAnalysis () {
                                         if (( $(willBeEnoughCves "$cveCount" "$instancesCount") == 0 ))
                                         then
                                                 echo -e "\t[AutomaticLink] Transition\n\t[Stage] Base Analysis OK\n[LinkedProcess] ${BOLD}Base analysis END${NONE}" >$(tty)
-												echo "0"
                                         else
                                                 echo -e "\t[Decision] There are not enough CVEs. Will you input them by yourself?" >$(tty)
                                                 if (( $(willUserInputByHimself) == "0" ))
@@ -537,8 +532,7 @@ function baseAnalysis () {
                                                         else
                                                                 userCveList=$(assignCVEs "$numberOfNeededCVEs" "$chosenCVEs" "$userCveList")
                                                                 echo -e "\t\t[AutomaticLink] Transition\n\t\t[Stage] CVEs auto-generation OK\n\t[LinkedProcess] ${BOLD}CVEs auto-generation END${NONE}\n\t[AutomaticLink] Transition\n[LinkedProcess] ${BOLD}Base Analysis END${NONE}" >$(tty)
-																echo "1"
-														fi
+                                                        fi
                                                 else
                                                         echo -e "\t\t[Stage] User will input CVEs by himself\n\tEXITING..." >$(tty) && exit 1
                                                 fi
@@ -548,7 +542,6 @@ function baseAnalysis () {
 								if (( $(willBeEnoughCves "$cveCount" "$instancesCount") == 0 ))
                                 then
                                         echo -e "\t[AutomaticLink] Transition\n\t[Stage] Base Analysis OK\n[LinkedProcess] ${BOLD}Base analysis END${NONE}" >$(tty)
-										echo "0"
                                 else
                                         echo -e "\t[Decision] There are not enough CVEs. Will you input them by yourself?" >$(tty)
                                         if (( $(willUserInputByHimself) == "0" ))
@@ -562,8 +555,7 @@ function baseAnalysis () {
                                                 else
                                                         userCveList=$(assignCVEs "$numberOfNeededCVEs" "$chosenCVEs" "$userCveList")
                                                         echo -e "\t\t[AutomaticLink] Transition\n\t\t[Stage] CVEs auto-generation OK\n\t[LinkedProcess] ${BOLD}CVEs auto-generation END${NONE}\n\t[AutomaticLink] Transition\n[LinkedProcess] ${BOLD}Base Analysis END${NONE}" >$(tty)
-														echo "1"
-												fi
+                                                fi
                                         else
                                                 echo -e "\t\t[Stage] User will input CVEs by himself\n\tEXITING..." >$(tty) && exit 1
                                         fi
@@ -577,30 +569,7 @@ function main () {
         echo -e "[Stage] The user \"$USER\" has started the process"
         echo -e "[LinkedProcess] Transition"
         requirementsCheck
-		if (( $(baseAnalysis) == 0 ))
-		then
-			echo -e "[AutomaticLink] Transition"
-		elif (( $(baseAnalysis) == 1 ))
-		then
-			echo -e "[AutomaticLink] Transition"
-			if (( $(baseAnalysis) == 0 ))
-			then
-				echo -e "[AutomaticLink] Transition"
-			elif (( $(baseAnalysis) == 1 ))
-			then
-				echo -e "[AutomaticLink] Transition"
-				if (( $(baseAnalysis) == 0 ))
-				then
-					echo -e "[AutomaticLink] Transition"
-				else
-					echo -e "[Alert] Error" && exit 1
-				fi
-			else
-				echo -e "[Alert] Error" && exit 1
-			fi
-		else
-			echo -e "[Alert] Error" && exit 1
-		fi
+		baseAnalysis
        
 
 
