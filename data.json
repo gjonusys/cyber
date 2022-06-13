@@ -1,5 +1,5 @@
 {
-        "instancesCount": 5,
+        "instancesCount": 10,
         "maxRam": 2048,
         "maxStorage": 4096,
         "onlyWindows": false,
