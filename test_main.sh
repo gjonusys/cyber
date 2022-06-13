@@ -538,7 +538,29 @@ function baseAnalysis () {
                                                 fi
                                         fi
                                 fi
-                        fi
+                        else
+								if (( $(willBeEnoughCves "$cveCount" "$instancesCount") == 0 ))
+                                then
+                                        echo -e "\t[AutomaticLink] Transition\n\t[Stage] Base Analysis OK\n[LinkedProcess] ${BOLD}Base analysis END${NONE}"
+                                else
+                                        echo -e "\t[Decision] There are not enough CVEs. Will you input them by yourself?"
+                                        if (( $(willUserInputByHimself) == "0" ))
+                                        then
+                                                echo -e "\t[AutomaticLink] Transition\n\t[LinkedProcess] ${BOLD}CVEs auto-generation START${NONE}\t($(date))"
+                                                numberOfNeededCVEs=$(howManyCVEsNeeded "$cveCount" "$instancesCount")
+                                                chosenCVEs=$(chooseCVEs "$allCveCount" "$numberOfNeededCVEs" "$cveList" "BLANK")
+                                                if [ -z "$chosenCVEs" ] || [[ "$chosenCVEs" = "1" ]]
+                                                then
+                                                        echo -e "\t\t[Alert] ERROR: Choosing random CVEs failed. Exiting..." && exit 1
+                                                else
+                                                        userCveList=$(assignCVEs "$numberOfNeededCVEs" "$chosenCVEs" "$userCveList")
+                                                        echo -e "\t\t[AutomaticLink] Transition\n\t\t[Stage] CVEs auto-generation OK\n\t[LinkedProcess] ${BOLD}CVEs auto-generation END${NONE}"
+                                                fi
+                                        else
+                                                echo -e "\t\t[Stage] User will input CVEs by himself\n\tEXITING..." && exit 1
+                                        fi
+                                fi
+						fi
                 fi
 				echo -e "\t[LinkedProcess] Transition"
 };
