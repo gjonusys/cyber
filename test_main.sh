@@ -357,6 +357,215 @@ function assignCVEs () {
         else
                 echo "1" && return 1
         fi
+};
+
+function countAndGetLinuxCVEs () {
+        echo -e "\n\t[Action] Calculation of how many CVEs for Linux OS are included" >$(tty)
+        j=0
+        result=""
+        allCveCount=$(cat ./cve_list.json | jq -r .cve[].id | wc -l)
+        declare -A linuxCVEs
+
+        for (( b=1; b<=$1; b++ ))
+        do
+                for (( a=0; a<$allCveCount; a++ ))
+                do
+                        cveFromUsersInput=$(echo $2 | tr ' ' '\n' | head -n $b | tail -n 1)
+                        cveFromList=$(cat ./cve_list.json | jq -r .cve[$a].id)
+                        if [[ "$cveFromUsersInput" = "$cveFromList" ]]
+                        then
+                                osFromUsersInput=$(cat ./cve_list.json| jq -r .cve[$a].os)
+                                if [[ "$osFromUsersInput" = 'linux' ]]
+                                then
+                                        result="${result} ${cveFromUsersInput}"
+                                        ((j++))
+                                        break
+                                fi
+                        fi
+                done
+        done
+        echo -e "\t[Result] Number of CVEs for Linux OS: $j" >$(tty)
+        echo -e "\t[Action] Getting CVEs that are only for Linux OS" >$(tty)
+        result=${result:1}
+        echo -e "\t[Result] List of Linux CVEs: $result" >$(tty)
+        result="${j},${result}"
+
+        if [ -z "$result" ]
+        then
+                echo "-1" && return 1
+        else
+                echo "$result" && return 0
+        fi
+};
+
+function getRandomNumberWithLimit () {
+        echo -e "\t\t[Action] Get a Random Number" >$(tty)
+        echo -e "\t\t[Decision] Is an inputed number valid?" >$(tty)
+        inputedNumber=$1
+        if [[ "$inputedNumber" -gt 0 ]]
+        then
+                echo -e "\t\t[LogicLink] Yes" >$(tty)
+        else
+                echo -e "\t\t[LogicLink] No" >$(tty)
+                echo "-1" && return 1 && exit 1
+        fi
+        randomNumber=$(( $(echo $RANDOM | head -n 2)%$inputedNumber ))
+        leftNumber=$(( $inputedNumber - $randomNumber ))
+        result="${randomNumber},${leftNumber}"
+        echo -e "\t\t[Decision] Is the Random Number valid?" >$(tty)
+        if [[ ! -z "$result" ]]
+        then
+                echo -e "\t\t[LogicLink] Yes" >$(tty)
+                echo "$result" && return 0
+        else
+                echo -e "\t\t[LogicLink] No" >$(tty)
+                echo "-1" && return 1
+        fi
+};
+
+function getRandomCvesFromInput () {
+        echo -e "\t\t[Action] Take $1 CVE(-s)" >$(tty)
+        local requiredCount=$1
+        local fullCount=$2
+        local cveList=$(echo $3)
+        local instanceName=$4
+        local newCveList=""
+        local leftLinuxCves=""
+        declare -A linuxCves
+
+        echo -e "\t\t[Decision] Are parameters valid?" >$(tty)
+        if [[ "$requiredCount" -le "$fullCount" ]]
+        then
+                echo -e "\t\t[LogicLink] Yes" >$(tty)
+        else
+                echo -e "\t\t[LogicLink] No" >$(tty)
+                echo "1" && return 1 && exit 1
+        fi
+
+        for (( i=1; i<=$fullCount; i++ ))
+        do
+                j=$(( $i + 1 ))
+                linuxCves[$i]=$(echo $cveList | cut -d " " -f $i )
+                #echo -e "LinuxCVEsFromLOOP: ${linuxCves[$i]}" >$(tty)
+        done
+
+        for (( i=0; i<$requiredCount; i++ ))
+        do
+                randomNumber=$(( $(echo $RANDOM | head -n 3)%$fullCount ))
+                if [[ "$randomNumber" -lt 1 ]] || [[ "$randomNumber" -gt "$fullCount" ]]
+                then
+                        randomNumber=$fullCount
+                fi
+                #echo "RANDOM NUMBER: $randomNumber" >$(tty)
+                randomCve=${linuxCves[$randomNumber]}
+                #echo "RANDOM CVE: $randomCve" >$(tty)
+                for (( j=$randomNumber; j<$fullCount; j++ ))
+                do
+                        linuxCves[$j]=${linuxCves[$(( $j + 1 ))]}
+                done
+                newCveList="${newCveList} ${randomCve}"
+                ((fullCount--))
+        done
+
+        for (( i=1; i<=$fullCount; i++ ))
+        do
+                leftLinuxCves="${leftLinuxCves} ${linuxCves[$i]}"
+        done
+
+        newCveList=$(echo "${newCveList:1}") && leftLinuxCves=$(echo "${leftLinuxCves:1}")
+        echo -e "\t\t[Result] ${GREEN}$instanceName CVE(-s): $newCveList ${NONE}" >$(tty)
+        result="$newCveList,$leftLinuxCves"
+
+        echo "$result" && return 0
+};
+
+function checkIsThereLinuxCves () {
+        echo -e "\t\t\t\t[Decision] Has component got Linux CVEs?" >$(tty)
+        if [[ "$1" -gt 0 ]]
+        then
+                echo -e "\t\t\t\t[LogicLink] Yes" >$(tty)
+                echo "0" && return 0
+        else
+                echo -e "\t\t\t\t[LogicLink] No" >$(tty)
+                echo "1" && return 1
+        fi
+};
+
+function assignLinuxCves () {
+        echo -e "\t\t\t[LinkedProcess] Linux CVEs for $3 START" >$(tty)
+        if (( $(checkIsThereLinuxCves "$1") == 0 ))
+        then
+                echo -e "\t\t\t\t[Action] Assign $1 CVE(-s)" >$(tty)
+                result="$2"
+                echo -e "\t\t\t\t[Result] Completed" >$(tty)
+        else
+                echo -e "\t\t\t\t[Stage] There are not any CVEs for $3" >$(tty)
+                result=""
+        fi
+        echo -e "\t\t\t\t[AutomaticLink] Transition\n\t\t\t[LinkedProcess] Linux CVEs for $3 END" >$(tty)
+        echo "$result" && return 0
+};
+
+function isThereOtherCves () {
+        echo -e "\t\t\t\t[Decision] Has component got software CVEs for $4?" >$(tty)
+        cveList=$(echo $2 | tr '\n' ' ')
+        cveListCount=$1
+
+        for (( i=1; i<=$cveListCount; i++ ))
+        do
+                cve=$(echo $cveList | cut -d ' ' -f $i)
+                answer=$(curl -s "https://services.nvd.nist.gov/rest/json/cve/1.0/$cve" | jq -r .result.CVE_Items[0].configurations.nodes[0].cpe_match[0].cpe23Uri)
+                answer1=$(echo $answer | cut -d ':' -f 4)
+                answer2=$(echo $answer | cut -d ':' -f 5)
+                for (( j=1; j<=$(( $(echo $3 | tr -cd , | wc -c) + 1 )); j++ ))
+                do
+                        local var=$(echo $3 | cut -d ',' -f $j)
+                        if [[ "$answer1" = "$var" ]] || [[ "$answer2" = "$var" ]]
+                        then
+                                echo -e "\t\t\t\t[LogicLink] Yes" >$(tty) && echo "0" && return 0 && exit 0
+                        fi
+                done
+        done
+        echo -e "\t\t\t\t[LogicLink] No" >$(tty) && echo "1" && return 1
+};
+
+function assignOtherCves () {
+        echo -e "\t\t\t[LinkedProcess] Software CVEs for $5 START\t($4)" >$(tty)
+        result=$1
+        if [ -z "$result" ]
+        then
+                varempty=1
+        else
+                varempty=0
+        fi
+        if (( $(isThereOtherCves "$2" "$3" "$4" "$5") == 0 ))
+        then
+                echo -e "\t\t\t\t[Action] Assign all $5 CVEs" >$(tty)
+                for (( i=1; i<=$2; i++ ))
+                do
+                        cve=$(echo $3 | cut -d ' ' -f $i)
+                        answer=$(curl -s "https://services.nvd.nist.gov/rest/json/cve/1.0/$cve" | jq -r .result.CVE_Items[0].configurations.nodes[0].cpe_match[0].cpe23Uri)
+                        answer1=$(echo $answer | cut -d ':' -f 4)
+                        answer2=$(echo $answer | cut -d ':' -f 4)
+                        for (( j=1; j<=$(( $(echo $4 | tr -cd , | wc -c) + 1 )); j++ ))
+                        do
+                                local var=$(echo $4 | cut -d ',' -f $j)
+                                if [[ "$answer1" = "$var" ]] || [[ "$answer2" = "$var" ]]
+                                then
+                                        result="${result} ${cve}"
+                                fi
+                        done
+                done
+                if [[ "$varempty" -eq 1 ]]
+                then
+                        result=$(echo ${result:1})
+                fi
+                echo -e "\t\t\t\t[Result] ${GREEN}Updated $5 CVEs: $result${NONE}\n\t\t\t\t[AutomaticLink] Transition\n\t\t\t[LinkedProcess] Software CVEs for $5 END" >$(tty)
+                echo "$result" && return 0
+        else
+                echo -e "\t\t\t\t[Stage] There are not any software CVEs for $5\n\t\t\t\t[AutomaticLink] Transition\n\t\t\t[LinkedProcess] Software CVEs for $5 END" >$(tty)
+                echo "$result" && return 1
+        fi
 }
 
 function username () {
@@ -395,9 +604,9 @@ function requirementsCheck () {
 };
 
 function baseAnalysis () {
-				echo -e "[LinkedProcess] ${BOLD}Base analysis${NONE}" >$(tty)
-		
-		#Data gathering
+        echo -e "[LinkedProcess] ${BOLD}Base Analysis START${NONE} \t ($(date))" >$(tty)
+
+                #Data gathering
                 data=$(cat ./data.json)
                 cveList=$(cat ./cve_list.json)
                 instancesCount=$(echo $data | jq .instancesCount)
@@ -443,8 +652,8 @@ function baseAnalysis () {
                                  instances[$i,'user']=$(username)
                                  instances[$i,'pass']=$(password)
                         fi
-                done     
-				
+                done
+
                 if (( $(isOnlyWindows "${allOSes[@]}") == "0" ))
                 then
                         if (( $(isThereANeedForDifferentOS "$(echo $data | jq -r .needForDifferentOS)") == 0 ))
@@ -464,6 +673,7 @@ function baseAnalysis () {
                                         else
                                                 userCveList=$(assignCVEs "$numberOfNeededCVEs" "$chosenCVEs" "$userCveList")
                                                 echo -e "\t\t[AutomaticLink] Transition\n\t\t[Stage] CVEs auto-generation went well\n\t[LinkedProcess] ${BOLD}CVEs auto-generation END${NONE}\n\t[AutomaticLink] Transition\n[LinkedProcess] ${BOLD}Base Analysis END${NONE}" >$(tty)
+                                                echo "$userCveList"
                                         fi
                                 else
                                         echo -e "\t\t[Stage] User will input CVEs by himself\n\tEXITING..." >$(tty) && exit 1
@@ -472,6 +682,7 @@ function baseAnalysis () {
                                 if (( $(willBeEnoughCves "$cveCount" "$instancesCount") == 0 ))
                                 then
                                         echo "\t[AutomaticLink] Transition\n\t[Stage] Base Analysis OK\n[LinkedProcess] ${BOLD}Base analysis END${NONE}\n\t[AutomaticLink] Transition\n[LinkedProcess] ${BOLD}Base Analysis END${NONE}" >$(tty)
+                                        echo "$userCveList"
                                 else
                                         echo -e "\t[Decision] There are not enough CVEs. Will you input them by yourself?" >$(tty)
                                         if (( $(willUserInputByHimself) == "0" ))
@@ -485,6 +696,7 @@ function baseAnalysis () {
                                                 else
                                                         userCveList=$(assignCVEs "$numberOfNeededCVEs" "$chosenCVEs" "$userCveList")
                                                         echo -e "\t\t[AutomaticLink] Transition\n\t\t[Stage] CVEs auto-generation OK\n\t[LinkedProcess] ${BOLD}CVEs auto-generation END${NONE}\n\t[AutomaticLink] Transition\n[LinkedProcess] ${BOLD}Base Analysis END${NONE}" >$(tty)
+                                                        echo "$userCveList"
                                                 fi
                                         else
                                                 echo -e "\t\t[Stage] User will input CVEs by himself\n\tEXITING..." >$(tty) && exit 1
@@ -511,6 +723,7 @@ function baseAnalysis () {
                                                 else
                                                         userCveList=$(assignCVEs "$numberOfNeededCVEs" "$chosenCVEs" "$userCveList")
                                                         echo -e "\t\t[AutomaticLink] Transition\n\t\t[Stage] CVEs auto-generation went well\n\t[LinkedProcess] ${BOLD}CVEs auto-generation END${NONE}\n\t[AutomaticLink] Transition\n[LinkedProcess] ${BOLD}Base Analysis END${NONE}" >$(tty)
+                                                        echo "$userCveList"
                                                 fi
                                         else
                                                 echo -e "\t\t[Stage] User will input CVEs by himself\n\tEXITING..." >$(tty) && exit 1
@@ -519,6 +732,7 @@ function baseAnalysis () {
                                         if (( $(willBeEnoughCves "$cveCount" "$instancesCount") == 0 ))
                                         then
                                                 echo -e "\t[AutomaticLink] Transition\n\t[Stage] Base Analysis OK\n[LinkedProcess] ${BOLD}Base analysis END${NONE}" >$(tty)
+                                                echo "$userCveList"
                                         else
                                                 echo -e "\t[Decision] There are not enough CVEs. Will you input them by yourself?" >$(tty)
                                                 if (( $(willUserInputByHimself) == "0" ))
@@ -532,6 +746,7 @@ function baseAnalysis () {
                                                         else
                                                                 userCveList=$(assignCVEs "$numberOfNeededCVEs" "$chosenCVEs" "$userCveList")
                                                                 echo -e "\t\t[AutomaticLink] Transition\n\t\t[Stage] CVEs auto-generation OK\n\t[LinkedProcess] ${BOLD}CVEs auto-generation END${NONE}\n\t[AutomaticLink] Transition\n[LinkedProcess] ${BOLD}Base Analysis END${NONE}" >$(tty)
+                                                                echo "$userCveList"
                                                         fi
                                                 else
                                                         echo -e "\t\t[Stage] User will input CVEs by himself\n\tEXITING..." >$(tty) && exit 1
@@ -539,7 +754,7 @@ function baseAnalysis () {
                                         fi
                                 fi
                         else
-								if (( $(willBeEnoughCves "$cveCount" "$instancesCount") == 0 ))
+                                                                if (( $(willBeEnoughCves "$cveCount" "$instancesCount") == 0 ))
                                 then
                                         echo -e "\t[AutomaticLink] Transition\n\t[Stage] Base Analysis OK\n[LinkedProcess] ${BOLD}Base analysis END${NONE}" >$(tty)
                                 else
@@ -555,13 +770,70 @@ function baseAnalysis () {
                                                 else
                                                         userCveList=$(assignCVEs "$numberOfNeededCVEs" "$chosenCVEs" "$userCveList")
                                                         echo -e "\t\t[AutomaticLink] Transition\n\t\t[Stage] CVEs auto-generation OK\n\t[LinkedProcess] ${BOLD}CVEs auto-generation END${NONE}\n\t[AutomaticLink] Transition\n[LinkedProcess] ${BOLD}Base Analysis END${NONE}" >$(tty)
+                                                        echo "$userCveList"
                                                 fi
                                         else
-                                                echo -e "\t\t[Stage] User will input CVEs by himself\n\tEXITING..." >$(tty) && exit 1
+                                                echo -e "\t[Stage] User will input CVEs by himself\n\t[AutomaticLink] Transition\n[LinkedProcess] ${BOLD}Base Analysis END${NONE}" >$(tty) && exit 1
                                         fi
                                 fi
-						fi
+                                                fi
                 fi
+};
+
+function advancedAnalysis () {
+        echo -e "[AutomaticLink] Transition\n[LinkedProcess] ${BOLD}Advanced Analysis START${NONE} \t($(date))" >$(tty)
+        echo -e "\t[Action] Gathering list of CVEs that was inputed by the user:" >$(tty)
+        cveList=$(echo $1 | tr ' ' '\n')
+        echo -e "\t[Result] List of CVEs: $cveList" | tr '\n' ' '
+        cveListCount=$(echo $cveList | tr ' ' '\n' | wc -l)
+        local linuxCveCountAndList=$(countAndGetLinuxCVEs "$cveListCount" "$cveList")
+
+        linuxCveCount=$(echo $linuxCveCountAndList | cut -d',' -f1)
+        linuxCveList=$(echo $linuxCveCountAndList | cut -d',' -f2)
+
+        echo -e "\t[LinkedProcess] ${BOLD}Web Server Linux CVE(-s) Distribution START${NONE}"
+        webserverLinuxCvesCount=$(echo $(getRandomNumberWithLimit "$linuxCveCount") | cut -d',' -f1)
+        #webserverLinuxCvesCount=2
+        result=$(getRandomCvesFromInput "$webserverLinuxCvesCount" "$linuxCveCount" "$linuxCveList" "Web Server")
+        webserverLinuxCves=$(echo $result | cut -d "," -f 1)
+        echo "RESULT: $result"
+        echo -e "\t[LinkedProcess] ${BOLD}Web server Linux CVE(-s) Distribution END${NONE}" >$(tty)
+
+        linuxCveCount=$(( ${linuxCveCount} - ${webserverLinuxCvesCount} ))
+        linuxCveList=$(echo $result | cut -d "," -f 2)
+        echo -e "\t[AutomaticLink] Transition" >$(tty)
+
+        echo -e "\t[LinkedProcess] ${BOLD}Database Linux CVE(-s) Distribution START${NONE}" >$(tty)
+        databaseLinuxCvesCount=$(echo $(getRandomNumberWithLimit "$linuxCveCount") | cut -d ',' -f1 )
+        #databaseLinuxCvesCount=1
+        result=$(getRandomCvesFromInput "$databaseLinuxCvesCount" "$linuxCveCount" "$linuxCveList" "Database")
+        databaseLinuxCves=$(echo $result | cut -d "," -f 1)
+        echo "RESULT: $result"
+        echo -e "\t[LinkedProcess] ${BOLD}Database Linux CVE(-s) Distribution END${NONE}" >$(tty)
+
+
+        echo -e "\t[AutomaticLink] Transition" >$(tty)
+        linuxCveCount=$(( ${linuxCveCount} - ${databaseLinuxCvesCount} ))
+        linuxCveList=$(echo $result | cut -d "," -f 2)
+
+        echo -e "\t[LinkedProcess] ${BOLD}Networking Linux CVE(-s) Distribution START${NONE}" >$(tty)
+        result=$(getRandomCvesFromInput "$linuxCveCount" "$linuxCveCount" "$linuxCveList" "Networking")
+        networkingLinuxCves=$(echo $result | cut -d "," -f 1)
+        echo "RESULT: $result"
+        echo -e "\t[LinkedProcess] ${BOLD}Networking Linux CVE(-s) Distribution END${NONE}"
+
+        echo -e "\t[AutomaticLink] Transition"
+        echo -e "\t[LinkedProcess] ${BOLD}Advanced Analysis of three main components${NONE} \t($(date))"
+        echo -e "\t[AutomaticLink] Transition"
+        echo -e "\t\t[LinkedProcess] ${BOLD}Advanced Analysis of the Web Server START${NONE} \t($(date))"
+        echo -e "\t\t[AutomaticLink] Transition" >$(tty)
+        webserverCves=$(assignLinuxCves "$webserverLinuxCvesCount" "$webserverLinuxCves" "Web Server")
+        echo -e "\t\t\t[AutomaticLink] Transition" >$(tty)
+        webserverCves=$(assignOtherCves "$webserverCves" "$cveListCount" "$cveList" "apache,nginx,lighttpd,caddy" "Web Server")
+        echo -e "\t\t\t[AutomaticLink] Transition" >$(tty)
+        webserverCves=$(assignOtherCves "$webserverCves" "$cveListCount" "$cveList" "wordpress,prestashop" "Web Server")
+        echo -e "\t\t\t[AutomaticLink] Transition" >$(tty)
+        echo -e "\t\t[LinkedProcess] ${BOLD}Advanced Analysis of the Web Server END${NONE}" >$(tty)
 };
 
 function main () {
@@ -569,8 +841,14 @@ function main () {
         echo -e "[Stage] The user \"$USER\" has started the process"
         echo -e "[LinkedProcess] Transition"
         requirementsCheck
-		baseAnalysis
-       
+        userCveList=$(baseAnalysis)
+        if [ -z "$userCveList" ]
+        then
+                echo -e "${RED}[Alert] Exiting...${NONE}"
+        else
+                advancedAnalysis "$userCveList"
+        fi
+
 
 
         #VM Data expose
