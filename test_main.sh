@@ -98,33 +98,44 @@ function installJq () {
 
 function isOnlyWindows () {
         echo -e "\t[Decision] Is only Windows?" >&$(tty)
-        local arr=("$@")
-        for i in "${arr[@]}"
+        local cveList=$1
+        for (( i=1; i<=$(( $(echo $cveList | tr -cd ' ' | wc -c) + 1 )); i++ ))
         do
-                if [[ "$i" = 'linux' ]]
+                cve=$(echo $cveList | cut -d ' ' -f $i)
+                answer=$(curl -s "https://services.nvd.nist.gov/rest/json/cve/1.0/$cve" | jq -r .result.CVE_Items[0].configurations.nodes[0].cpe_match[0].cpe23Uri)
+                answer1=$(echo $answer | cut -d ':' -f 4)
+                answer2=$(echo $answer | cut -d ':' -f 5)
+                if [[ "$answer1" = 'linux' ]] || [[ "$answer2" = 'linux' ]]
                 then
                         echo -e "\t[LogicLink] No" >$(tty)
                         echo "1" && return 1
+                        exit 1
                 fi
         done
+
         echo -e "\t[LogicLink] Yes" >$(tty)
         echo "0" && return 0
 };
 
 function isOnlyLinux () {
         echo -e "\t[Decision] Is only Linux?" >&$(tty)
-        local arr=("$@")
-        for i in "${arr[@]}";
+        local cveList=$1
+        for (( i=1; i<=$(( $(echo $cveList | tr -cd ' ' | wc -c) + 1 )); i++ ))
         do
-                if [[ "$i" = 'windows' ]]
+                cve=$(echo $cveList | cut -d ' ' -f $i)
+                answer=$(curl -s "https://services.nvd.nist.gov/rest/json/cve/1.0/$cve" | jq -r .result.CVE_Items[0].configurations.nodes[0].cpe_match[0].cpe23Uri)
+                answer1=$(echo $answer | cut -d ':' -f 4)
+                answer2=$(echo $answer | cut -d ':' -f 5)
+                if [[ "$answer1" = 'microsoft' ]] || [[ "$answer2" = 'microsoft' ]]
                 then
                         echo -e "\t[LogicLink] No" >$(tty)
                         echo "1" && return 1
+                        exit 1
                 fi
         done
+
         echo -e "\t[LogicLink] Yes" >$(tty)
         echo "0" && return 0
-
 };
 
 function isThereANeedForDifferentOS () {
@@ -283,8 +294,7 @@ function willUserInputByHimself () {
 function howManyCVEsNeeded () {
         echo -e "\t\t[Action] Calculation of how many CVEs are needed" >$(tty)
         local result=$(echo $(( $1 * 100 / $2 )))
-        #pirmas yra cveCount o antras yra instancesCount
-        local minimumReq=$(echo $(( ($2 + 2 - 1) / 2 )))
+        local minimumReq=$(echo $(( ($2 + 2 - 1) / 2 ))) #minimum quantity of CVEs per all instances
         local needed=$(echo $(( $minimumReq - $1 )))
         echo -e "\t\t[Result] The cyber range needs $needed more CVE(-s)" >$(tty)
         if [ -z "$needed" ]
@@ -302,10 +312,13 @@ function chooseCVEs () {
         declare -A allIDs
         for (( i=0; i<$1; i++))
         do
-                os=$(echo $3 | jq -r .cve[$i].os)
-                if [[ "$os" = 'windows' ]] || [[ "$os" = 'linux' ]]
+                cve=$(echo $3 | jq -r .cve[$i].id)
+                answer=$(curl -s "https://services.nvd.nist.gov/rest/json/cve/1.0/$cve" | jq -r .result.CVE_Items[0].configurations.nodes[0].cpe_match[0].cpe23Uri)
+                answer1=$(echo $answer | cut -d ':' -f 4)
+                answer2=$(echo $answer | cut -d ':' -f 5)
+                if [[ "$answer1" = 'microsoft' ]] || [[ "$answer2" = 'microsoft' ]] || [[ "$answer1" = 'linux' ]] || [[ "$answer2" = 'linux' ]]
                 then
-                        allIDs[$j]=$(echo $3 | jq -r .cve[$i].id)
+                        allIDs[$j]=$cve
                         ((j++))
                 fi
         done
@@ -368,21 +381,16 @@ function countAndGetLinuxCVEs () {
 
         for (( b=1; b<=$1; b++ ))
         do
-                for (( a=0; a<$allCveCount; a++ ))
-                do
-                        cveFromUsersInput=$(echo $2 | tr ' ' '\n' | head -n $b | tail -n 1)
-                        cveFromList=$(cat ./cve_list.json | jq -r .cve[$a].id)
-                        if [[ "$cveFromUsersInput" = "$cveFromList" ]]
-                        then
-                                osFromUsersInput=$(cat ./cve_list.json| jq -r .cve[$a].os)
-                                if [[ "$osFromUsersInput" = 'linux' ]]
-                                then
-                                        result="${result} ${cveFromUsersInput}"
-                                        ((j++))
-                                        break
-                                fi
-                        fi
-                done
+                cveFromUsersInput=$(echo $2 | tr ' ' '\n' | head -n $b | tail -n 1)
+                answer=$(curl -s "https://services.nvd.nist.gov/rest/json/cve/1.0/$cveFromUsersInput" | jq -r .result.CVE_Items[0].configurations.nodes[0].cpe_match[0].cpe23Uri)
+                answer1=$(echo $answer | cut -d ':' -f 4)
+                answer2=$(echo $answer | cut -d ':' -f 5)
+                #echo -e "ANSWER: $cveFromUserInput - $answer1 - $answer2" >$(tty)
+                if [[ "$answer1" = 'linux' ]] || [[ "$answer2" = 'linux' ]]
+                then
+                        result="${result} ${cveFromUsersInput}"
+                        ((j++))
+                fi
         done
         echo -e "\t[Result] Number of CVEs for Linux OS: $j" >$(tty)
         echo -e "\t[Action] Getting CVEs that are only for Linux OS" >$(tty)
@@ -396,6 +404,21 @@ function countAndGetLinuxCVEs () {
         else
                 echo "$result" && return 0
         fi
+};
+
+function getLinuxCvesForMainComponentsAndNot () {
+        echo -e "\t[Action] Distributing Linux CVEs for three Main Components" >$(tty)
+        linuxCount=$(echo $1 | cut -d ',' -f 1)
+        linuxCves=$(echo $1 | cut -d ',' -f 2)
+        proportion=$(cat ./data.json | jq .proportionLinuxCvesForMainComponents)
+
+        require=$(echo $(( ($linuxCount + 2 - 1) * $proportion / 100 )))
+        echo -e "\t[Result] Main components will get $require CVE(-s)" >$(tty)
+        echo -e "\t[Action] Assign $require CVE(-s) for Main Components" >$(tty)
+        result=$(getRandomCvesFromInput "$require" "$linuxCount" "$linuxCves" "Main Components")
+        result="$require,$result"
+        echo -e "\t\t[AutomaticLink] Transition\n\t[Result] CVEs have been assigned: $result" >$(tty)
+        echo -e "$result" && return 0
 };
 
 function getRandomNumberWithLimit () {
@@ -610,51 +633,11 @@ function baseAnalysis () {
                 data=$(cat ./data.json)
                 cveList=$(cat ./cve_list.json)
                 instancesCount=$(echo $data | jq .instancesCount)
-                maxRAM=$(echo $data | jq .maxRam)
-                maxStorage=$(echo $data | jq .maxStorage)
                 cveCount=$(echo $data | jq .cve[].id | wc -l)
                 allCveCount=$(echo $cveList | jq .cve[].id | wc -l)
-                userCveList=$(echo $data | jq -r .cve[].id)
-        #Data expose
-                #dataExpose
-        #VM Data generation
-                declare -A instances
-                declare -A allOSes
-                declare -A allVersions
-                for (( i=0; i<$instancesCount; i++ ))
-                do
-                        for (( k=0; k<$allCveCount; k++ ))
-                        do
-                                if [[ "$(echo $data | jq .cve[$i].id)" == "$(echo $cveList | jq .cve[$k].id)" ]]
-                                then
-                                        finalPosition=$(( $(echo $RANDOM | head -c 2 | tail -c 1)%5 ))
-                                        while [[ "${allIndexes[*]}" =~ "${finalPosition}" ]]
-                                        do
-                                                finalPosition=$(( $(echo $RANDOM | head -c 2 | tail -c 1)%5 ))
-                                        done
-                                        allIndexes[${#allIndexes[@]}]=${finalPosition}
-                                        #echo "INDEX: $finalPosition"
-                                        instances[$finalPosition,'id']=$(echo $cveList | jq -r .cve[$k].id)
-                                        instances[$finalPosition,'os']=$(echo $cveList | jq -r .cve[$k].os)
-                                        allOSes[$i]=${instances[$finalPosition,'os']}
-                                        instances[$finalPosition,'version']=$(echo $cveList | jq -r .cve[$k].version)
-                                        allVersions[$i]=${instances[$finalPosition,'version']}
-                                        instances[$finalPosition,'user']=$(username)
-                                        instances[$finalPosition,'pass']=$(password)
-                                        break
-                                fi
-                        done
-                        if [[ -z "${instances[$i,'id']}" ]]
-                        then
-                                 instances[$i,'id']="-\t\t" #$(echo $cveList | jq -r .cve[$k].id)
-                                 instances[$i,'os']="TODO" #$(echo $cveList | jq -r .cve[$k].os)
-                                 instances[$i,'version']="TODO" #$(echo $cveList | jq -r .cve[$k].version)
-                                 instances[$i,'user']=$(username)
-                                 instances[$i,'pass']=$(password)
-                        fi
-                done
+                userCveList=$(echo $data | jq -r .cve[].id | tr '\n' ' ')
 
-                if (( $(isOnlyWindows "${allOSes[@]}") == "0" ))
+                if (( $(isOnlyWindows "$userCveList") == "0" ))
                 then
                         if (( $(isThereANeedForDifferentOS "$(echo $data | jq -r .needForDifferentOS)") == 0 ))
                         then
@@ -704,7 +687,7 @@ function baseAnalysis () {
                                 fi
                         fi
                 else
-                        if (( $(isOnlyLinux "${allOSes[@]}") == 0 ))
+                        if (( $(isOnlyLinux "$userCveList") == 0 ))
                         then
                                 if (( $(isThereANeedForDifferentOS "$(echo $data | jq -r .needForDifferentOS)") == 0 ))
                                 then
@@ -754,9 +737,10 @@ function baseAnalysis () {
                                         fi
                                 fi
                         else
-                                                                if (( $(willBeEnoughCves "$cveCount" "$instancesCount") == 0 ))
+                                if (( $(willBeEnoughCves "$cveCount" "$instancesCount") == 0 ))
                                 then
                                         echo -e "\t[AutomaticLink] Transition\n\t[Stage] Base Analysis OK\n[LinkedProcess] ${BOLD}Base analysis END${NONE}" >$(tty)
+                                        echo "$userCveList"
                                 else
                                         echo -e "\t[Decision] There are not enough CVEs. Will you input them by yourself?" >$(tty)
                                         if (( $(willUserInputByHimself) == "0" ))
@@ -787,16 +771,17 @@ function advancedAnalysis () {
         echo -e "\t[Result] List of CVEs: $cveList" | tr '\n' ' '
         cveListCount=$(echo $cveList | tr ' ' '\n' | wc -l)
         local linuxCveCountAndList=$(countAndGetLinuxCVEs "$cveListCount" "$cveList")
+        linuxCvesDistributed=$(getLinuxCvesForMainComponentsAndNot "$linuxCveCountAndList")
 
-        linuxCveCount=$(echo $linuxCveCountAndList | cut -d',' -f1)
-        linuxCveList=$(echo $linuxCveCountAndList | cut -d',' -f2)
+        linuxCveCount=$(echo $linuxCvesDistributed | cut -d',' -f1)
+        linuxCveList=$(echo $linuxCvesDistributed | cut -d',' -f2)
 
         echo -e "\t[LinkedProcess] ${BOLD}Web Server Linux CVE(-s) Distribution START${NONE}"
         webserverLinuxCvesCount=$(echo $(getRandomNumberWithLimit "$linuxCveCount") | cut -d',' -f1)
         #webserverLinuxCvesCount=2
         result=$(getRandomCvesFromInput "$webserverLinuxCvesCount" "$linuxCveCount" "$linuxCveList" "Web Server")
         webserverLinuxCves=$(echo $result | cut -d "," -f 1)
-        echo "RESULT: $result"
+        #echo "RESULT: $result"
         echo -e "\t[LinkedProcess] ${BOLD}Web server Linux CVE(-s) Distribution END${NONE}" >$(tty)
 
         linuxCveCount=$(( ${linuxCveCount} - ${webserverLinuxCvesCount} ))
@@ -808,7 +793,7 @@ function advancedAnalysis () {
         #databaseLinuxCvesCount=1
         result=$(getRandomCvesFromInput "$databaseLinuxCvesCount" "$linuxCveCount" "$linuxCveList" "Database")
         databaseLinuxCves=$(echo $result | cut -d "," -f 1)
-        echo "RESULT: $result"
+        #echo "RESULT: $result"
         echo -e "\t[LinkedProcess] ${BOLD}Database Linux CVE(-s) Distribution END${NONE}" >$(tty)
 
 
@@ -819,11 +804,11 @@ function advancedAnalysis () {
         echo -e "\t[LinkedProcess] ${BOLD}Networking Linux CVE(-s) Distribution START${NONE}" >$(tty)
         result=$(getRandomCvesFromInput "$linuxCveCount" "$linuxCveCount" "$linuxCveList" "Networking")
         networkingLinuxCves=$(echo $result | cut -d "," -f 1)
-        echo "RESULT: $result"
+        #echo "RESULT: $result"
         echo -e "\t[LinkedProcess] ${BOLD}Networking Linux CVE(-s) Distribution END${NONE}"
 
         echo -e "\t[AutomaticLink] Transition"
-        echo -e "\t[LinkedProcess] ${BOLD}Advanced Analysis of three main components${NONE} \t($(date))"
+        echo -e "\t[LinkedProcess] ${BOLD}Advanced Analysis of three main components START${NONE} \t($(date))"
         echo -e "\t[AutomaticLink] Transition"
         echo -e "\t\t[LinkedProcess] ${BOLD}Advanced Analysis of the Web Server START${NONE} \t($(date))"
         echo -e "\t\t[AutomaticLink] Transition" >$(tty)
@@ -833,25 +818,73 @@ function advancedAnalysis () {
         echo -e "\t\t\t[AutomaticLink] Transition" >$(tty)
         webserverCves=$(assignOtherCves "$webserverCves" "$cveListCount" "$cveList" "wordpress,prestashop" "Web Server")
         echo -e "\t\t\t[AutomaticLink] Transition" >$(tty)
+        echo -e "\t\t\t[Stage] ${GREEN}All Web Server CVEs: $webserverCves${NONE}" >$(tty)
         echo -e "\t\t[LinkedProcess] ${BOLD}Advanced Analysis of the Web Server END${NONE}" >$(tty)
         echo -e "\t\t\t[AutomaticLink] Transition" >$(tty)
-        
+
         echo -e "\t\t[LinkedProcess] ${BOLD}Advanced Analysis of the Database START${NONE} \t($(date))"
         echo -e "\t\t[AutomaticLink] Transition" >$(tty)
         databaseCves=$(assignLinuxCves "$databaseLinuxCvesCount" "$databaseLinuxCves" "Database")
         echo -e "\t\t\t[AutomaticLink] Transition" >$(tty)
         databaseCves=$(assignOtherCves "$databaseCves" "$cveListCount" "$cveList" "mysql,postgresql" "Database")
         echo -e "\t\t\t[AutomaticLink] Transition" >$(tty)
+        echo -e "\t\t\t[Stage] ${GREEN}All Database CVEs: $databaseCves${NONE}" >$(tty)
         echo -e "\t\t[LinkedProcess] ${BOLD}Advanced Analysis of the Database END${NONE}" >$(tty)
         echo -e "\t\t\t[AutomaticLink] Transition" >$(tty)
-        
+
         echo -e "\t\t[LinkedProcess] ${BOLD}Advanced Analysis of the Networking START${NONE} \t($(date))"
         echo -e "\t\t[AutomaticLink] Transition" >$(tty)
         networkingCves=$(assignLinuxCves "$linuxCveCount" "$networkingLinuxCves" "Networking")
         echo -e "\t\t\t[AutomaticLink] Transition" >$(tty)
-        networkingCves=$(assignOtherCves "$networkingCves" "$cveListCount" "$cveList" "mysql,postgresql" "Networking")
+        networkingCves=$(assignOtherCves "$networkingCves" "$cveListCount" "$cveList" "openvswitch" "Networking")
         echo -e "\t\t\t[AutomaticLink] Transition" >$(tty)
+        echo -e "\t\t\t[Stage] ${GREEN}All Networking CVEs: $networkingCves${NONE}" >$(tty)
         echo -e "\t\t[LinkedProcess] ${BOLD}Advanced Analysis of the Networking END${NONE}" >$(tty)
+        echo -e "\t\t[AutomaticLink] Transition" >$(tty)
+        echo -e "\t[LinkedProcess] ${BOLD}Advanced Analysis of three main components END${NONE}" >$(tty)
+        echo -e "\t[AutomaticLink] Transition" >$(tty)
+        echo -e "\t[LinkedProcess] ${BOLD}Distribution of CVEs for other VMs START${NONE} \t($(date))" >$(tty)
+        echo -e "\t[AutomaticLink] Transition" >$(tty)
+        echo -e "\t\t[Action] Find not used CVEs (except dedicated for Linux OS)" >$(tty)
+        excludes="linux,apache,nginx,lighttpd,caddy,mysql,postgresql,openvswitch"
+        otherIds=""
+        for (( i=1; i<=$cveListCount; i++ ))
+        do
+                foo=0
+                cve=$(echo "$cveList" | tr '\n' ' ' | cut -d ' ' -f $i)
+                answer=$(curl -s "https://services.nvd.nist.gov/rest/json/cve/1.0/$cve" | jq -r .result.CVE_Items[0].configurations.nodes[0].cpe_match[0].cpe23Uri)
+                answer1=$(echo $answer | cut -d ':' -f 4)
+                answer2=$(echo $answer | cut -d ':' -f 5)
+                for (( j=1; j<=$(( $(echo $excludes | tr -cd , | wc -c) + 1 )); j++ ))
+                do
+                        var=$(echo $excludes | cut -d ',' -f $j)
+                        if [[ "$answer1" = "$var" ]] || [[ "$answer2" = "$var" ]]
+                        then
+                                ((foo++))
+                        fi
+                done
+                if [[ "$foo" -eq 0 ]]
+                then
+                        otherIds="${otherIds} ${cve}"
+                fi
+        done
+
+        otherIds=$(echo "${otherIds:1}")
+        echo -e "\t\t[Result] Found CVE(-s): $otherIds" >$(tty)
+        echo -e "\t\t[Action] Find not used Linux CVE(-s)" >$(tty)
+        otherIdsLinux=$(echo $linuxCvesDistributed | cut -d ',' -f 3)
+        echo -e "\t\t[Result] Found CVE(-s): $otherIdsLinux" >$(tty)
+        echo -e "\t\t[Action] Merge all CVEs that were unused" >$(tty)
+        otherIds="${otherIds} ${otherIdsLinux}"
+        echo -e "\t\t[Result] Merged CVEs: $otherIds" >$(tty)
+
+        #otherIdsCount=$(( $(echo $otherIds | tr -cd ' ' | wc -c) + 1 ))
+        echo -e "\t\t[AutomaticLink] Transition" >$(tty)
+        echo -e "\t[LinkedProcess] ${BOLD}Distribution of CVEs for other VMs END${NONE}" >$(tty)
+        echo -e "\t[Action] Merge all CVEs of the Cyber Range" >$(tty)
+        result="${webserverCves},${databaseCves},${networkingCves},${otherIds}"
+        echo -e "\t[Result] ${GREEN}${BOLD}All CVEs: $result${NONE}" >$(tty)
+
 };
 
 function main () {
