@@ -834,6 +834,24 @@ function advancedAnalysis () {
         webserverCves=$(assignOtherCves "$webserverCves" "$cveListCount" "$cveList" "wordpress,prestashop" "Web Server")
         echo -e "\t\t\t[AutomaticLink] Transition" >$(tty)
         echo -e "\t\t[LinkedProcess] ${BOLD}Advanced Analysis of the Web Server END${NONE}" >$(tty)
+        echo -e "\t\t\t[AutomaticLink] Transition" >$(tty)
+        
+        echo -e "\t\t[LinkedProcess] ${BOLD}Advanced Analysis of the Database START${NONE} \t($(date))"
+        echo -e "\t\t[AutomaticLink] Transition" >$(tty)
+        databaseCves=$(assignLinuxCves "$databaseLinuxCvesCount" "$databaseLinuxCves" "Database")
+        echo -e "\t\t\t[AutomaticLink] Transition" >$(tty)
+        databaseCves=$(assignOtherCves "$databaseCves" "$cveListCount" "$cveList" "mysql,postgresql" "Database")
+        echo -e "\t\t\t[AutomaticLink] Transition" >$(tty)
+        echo -e "\t\t[LinkedProcess] ${BOLD}Advanced Analysis of the Database END${NONE}" >$(tty)
+        echo -e "\t\t\t[AutomaticLink] Transition" >$(tty)
+        
+        echo -e "\t\t[LinkedProcess] ${BOLD}Advanced Analysis of the Networking START${NONE} \t($(date))"
+        echo -e "\t\t[AutomaticLink] Transition" >$(tty)
+        networkingCves=$(assignLinuxCves "$linuxCveCount" "$networkingLinuxCves" "Networking")
+        echo -e "\t\t\t[AutomaticLink] Transition" >$(tty)
+        networkingCves=$(assignOtherCves "$networkingCves" "$cveListCount" "$cveList" "mysql,postgresql" "Networking")
+        echo -e "\t\t\t[AutomaticLink] Transition" >$(tty)
+        echo -e "\t\t[LinkedProcess] ${BOLD}Advanced Analysis of the Networking END${NONE}" >$(tty)
 };
 
 function main () {
