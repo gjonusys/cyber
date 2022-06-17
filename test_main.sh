@@ -589,6 +589,48 @@ function assignOtherCves () {
                 echo -e "\t\t\t\t[Stage] There are not any software CVEs for $5\n\t\t\t\t[AutomaticLink] Transition\n\t\t\t[LinkedProcess] Software CVEs for $5 END" >$(tty)
                 echo "$result" && return 1
         fi
+};
+
+function completeOtherCves () {
+        echo -e "\t[LinkedProcess] ${BOLD}Distribution of CVEs for other VMs START${NONE} \t($(date))" >$(tty)
+        echo -e "\t[AutomaticLink] Transition" >$(tty)
+        echo -e "\t\t[Action] Find not used CVEs (except dedicated for Linux OS)" >$(tty)
+        excludes="linux,apache,nginx,lighttpd,caddy,mysql,postgresql,openvswitch"
+        otherIds=""
+        cveListCount=$1
+        cveList=$2
+        for (( i=1; i<=$cveListCount; i++ ))
+        do
+                foo=0
+                cve=$(echo "$cveList" | tr '\n' ' ' | cut -d ' ' -f $i)
+                answer=$(curl -s "https://services.nvd.nist.gov/rest/json/cve/1.0/$cve" | jq -r .result.CVE_Items[0].configurations.nodes[0].cpe_match[0].cpe23Uri)
+                answer1=$(echo $answer | cut -d ':' -f 4)
+                answer2=$(echo $answer | cut -d ':' -f 5)
+                for (( j=1; j<=$(( $(echo $excludes | tr -cd , | wc -c) + 1 )); j++ ))
+                do
+                        var=$(echo $excludes | cut -d ',' -f $j)
+                        if [[ "$answer1" = "$var" ]] || [[ "$answer2" = "$var" ]]
+                        then
+                                ((foo++))
+                        fi
+                done
+                if [[ "$foo" -eq 0 ]]
+                then
+                        otherIds="${otherIds} ${cve}"
+                fi
+        done
+
+        otherIds=$(echo "${otherIds:1}")
+        echo -e "\t\t[Result] Found CVE(-s): $otherIds" >$(tty)
+        echo -e "\t\t[Action] Find not used Linux CVE(-s)" >$(tty)
+        otherIdsLinux=$(echo $linuxCvesDistributed | cut -d ',' -f 3)
+        echo -e "\t\t[Result] Found CVE(-s): $otherIdsLinux" >$(tty)
+        echo -e "\t\t[Action] Merge all CVEs that were unused" >$(tty)
+        otherIds="${otherIds} ${otherIdsLinux}"
+        echo "$otherIds"
+        echo -e "\t\t[Result] Merged CVEs: $otherIds" >$(tty)
+        echo -e "\t\t[AutomaticLink] Transition" >$(tty)
+        echo -e "\t[LinkedProcess] ${BOLD}Distribution of CVEs for other VMs END${NONE}" >$(tty)
 }
 
 function username () {
@@ -843,44 +885,7 @@ function advancedAnalysis () {
         echo -e "\t\t[AutomaticLink] Transition" >$(tty)
         echo -e "\t[LinkedProcess] ${BOLD}Advanced Analysis of three main components END${NONE}" >$(tty)
         echo -e "\t[AutomaticLink] Transition" >$(tty)
-        echo -e "\t[LinkedProcess] ${BOLD}Distribution of CVEs for other VMs START${NONE} \t($(date))" >$(tty)
-        echo -e "\t[AutomaticLink] Transition" >$(tty)
-        echo -e "\t\t[Action] Find not used CVEs (except dedicated for Linux OS)" >$(tty)
-        excludes="linux,apache,nginx,lighttpd,caddy,mysql,postgresql,openvswitch"
-        otherIds=""
-        for (( i=1; i<=$cveListCount; i++ ))
-        do
-                foo=0
-                cve=$(echo "$cveList" | tr '\n' ' ' | cut -d ' ' -f $i)
-                answer=$(curl -s "https://services.nvd.nist.gov/rest/json/cve/1.0/$cve" | jq -r .result.CVE_Items[0].configurations.nodes[0].cpe_match[0].cpe23Uri)
-                answer1=$(echo $answer | cut -d ':' -f 4)
-                answer2=$(echo $answer | cut -d ':' -f 5)
-                for (( j=1; j<=$(( $(echo $excludes | tr -cd , | wc -c) + 1 )); j++ ))
-                do
-                        var=$(echo $excludes | cut -d ',' -f $j)
-                        if [[ "$answer1" = "$var" ]] || [[ "$answer2" = "$var" ]]
-                        then
-                                ((foo++))
-                        fi
-                done
-                if [[ "$foo" -eq 0 ]]
-                then
-                        otherIds="${otherIds} ${cve}"
-                fi
-        done
-
-        otherIds=$(echo "${otherIds:1}")
-        echo -e "\t\t[Result] Found CVE(-s): $otherIds" >$(tty)
-        echo -e "\t\t[Action] Find not used Linux CVE(-s)" >$(tty)
-        otherIdsLinux=$(echo $linuxCvesDistributed | cut -d ',' -f 3)
-        echo -e "\t\t[Result] Found CVE(-s): $otherIdsLinux" >$(tty)
-        echo -e "\t\t[Action] Merge all CVEs that were unused" >$(tty)
-        otherIds="${otherIds} ${otherIdsLinux}"
-        echo -e "\t\t[Result] Merged CVEs: $otherIds" >$(tty)
-
-        #otherIdsCount=$(( $(echo $otherIds | tr -cd ' ' | wc -c) + 1 ))
-        echo -e "\t\t[AutomaticLink] Transition" >$(tty)
-        echo -e "\t[LinkedProcess] ${BOLD}Distribution of CVEs for other VMs END${NONE}" >$(tty)
+        otherIds=$(completeOtherCves "$cveListCount" "$cveList")
         echo -e "\t[Action] Merge all CVEs of the Cyber Range" >$(tty)
         result="${webserverCves},${databaseCves},${networkingCves},${otherIds}"
         echo -e "\t[Result] ${GREEN}${BOLD}All CVEs: $result${NONE}" >$(tty)
