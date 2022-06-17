@@ -1,20 +1,38 @@
 {
         "instancesCount": 22,
-        "needForDifferentOS": "No",
         "proportionCvesForAllVms": 50,
         "proportionLinuxCvesForMainComponents": 60,
+        "needForDifferentOS": "No",
         "cve": [
                 {
-                        "id": "cve-2018-0001"
+                        "id": "cve-2022-30190"
                 },
                 {
-                        "id": "cve-2018-0001"
+                        "id": "cve-2016-10150"
                 },
                 {
-                        "id": "cve-2019-1111"
+                        "id": "cve-2020-25694"
+                },
+                {
+                        "id": "cve-2016-3266"
                 },
                 {
                         "id": "cve-2020-25213"
+                },
+                {
+                        "id": "cve-2019-1389"
+                },
+                {
+                        "id": "cve-2009-3896"
+                },
+                {
+                        "id": "cve-2015-8787"
+                },
+                {
+                        "id": "cve-2013-4300"
+                },
+                {
+                        "id": "cve-2018-1065"
                 }
         ],
         "generateFile": true
