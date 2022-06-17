@@ -1,15 +1,8 @@
 {
-        "instancesCount": 10,
-        "maxRam": 2048,
-        "maxStorage": 4096,
-        "onlyWindows": false,
-        "onlyLinux": true,
-        "webserver": true,
-        "apache": true,
-        "wordpress": true,
-        "postgresql": true,
-        "mysql": false,
+        "instancesCount": 22,
         "needForDifferentOS": "No",
+        "proportionCvesForAllVms": 50,
+        "proportionLinuxCvesForMainComponents": 60,
         "cve": [
                 {
                         "id": "cve-2018-0001"
