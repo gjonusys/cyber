@@ -34,6 +34,5 @@
                 {
                         "id": "cve-2018-1065"
                 }
-        ],
-        "generateFile": true
+        ]
 }
