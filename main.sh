@@ -631,7 +631,115 @@ function completeOtherCves () {
         echo -e "\t\t[Result] Merged CVEs: $otherIds" >$(tty)
         echo -e "\t\t[AutomaticLink] Transition" >$(tty)
         echo -e "\t[LinkedProcess] ${BOLD}Distribution of CVEs for other VMs END${NONE}" >$(tty)
-}
+};
+
+function outputGeneration {
+        echo -e "[LinkedProcess] ${BOLD}Output Generation START${NONE}\t ($(date))" >$(tty)
+        webserver=$(echo $1 | cut -d ',' -f 1)
+        database=$(echo $1 | cut -d ',' -f 2)
+        network=$(echo $1 | cut -d ',' -f 3)
+        left=$(echo $1 | cut -d ',' -f 4)
+        echo -e "\t[Action] Generate output for main components" >$(tty)
+        echo "{" > config.json
+        echo "mainComponents:" >> config.json
+        echo "[" >> config.json
+        echo "{" >> config.json
+        echo "name: webserver" >> config.json
+        echo "cves:" >> config.json
+        echo "[" >> config.json
+        for (( i=1; i<=$(( $(echo $webserver | tr -cd ' ' | wc -c) + 1 )); i++ ))
+        do
+                echo "{" >> config.json
+                id=$(echo $webserver | cut -d ' ' -f $i)
+                echo "id: $id," >> config.json
+                os=$(curl -s "https://services.nvd.nist.gov/rest/json/cve/1.0/$id" | jq -r .result.CVE_Items[0].configurations.nodes[0].cpe_match[0].cpe23Uri)
+                echo "os: $(echo $os | cut -d ':' -f 4) $(echo $os | cut -d ':' -f 5)," >> config.json
+                echo "score: $(curl -s "https://services.nvd.nist.gov/rest/json/cve/1.0/$id" | jq -r .result.CVE_Items[0].impact.baseMetricV2.cvssV2.baseScore)," >> config.json
+                echo "publishedDate: $(curl -s "https://services.nvd.nist.gov/rest/json/cve/1.0/$id" | jq -r .result.CVE_Items[0].publishedDate | cut -d 'T' -f 1)" >> config.json
+                if [[ "$i" -ne "$(( $(echo $webserver | tr -cd ' ' | wc -c) + 1 ))" ]]
+                then
+                        echo "}," >> config.json
+                else
+                        echo "}" >> config.json
+                fi
+        done
+        echo "]" >> config.json
+        echo "}," >> config.json
+        echo "{" >> config.json
+        echo "name: database" >> config.json
+        echo "cves:" >> config.json
+        echo "[" >> config.json
+        for (( i=1; i<=$(( $(echo $database | tr -cd ' ' | wc -c) + 1 )); i++ ))
+        do
+                echo "{" >> config.json
+                id=$(echo $database | cut -d ' ' -f $i)
+                echo "id: $id," >> config.json
+                os=$(curl -s "https://services.nvd.nist.gov/rest/json/cve/1.0/$id" | jq -r .result.CVE_Items[0].configurations.nodes[0].cpe_match[0].cpe23Uri)
+                echo "os: $(echo $os | cut -d ':' -f 4) $(echo $os | cut -d ':' -f 5)," >> config.json
+                echo "score: $(curl -s "https://services.nvd.nist.gov/rest/json/cve/1.0/$id" | jq -r .result.CVE_Items[0].impact.baseMetricV2.cvssV2.baseScore)," >> config.json
+                echo "publishedDate: $(curl -s "https://services.nvd.nist.gov/rest/json/cve/1.0/$id" | jq -r .result.CVE_Items[0].publishedDate | cut -d 'T' -f 1)" >> config.json
+                if [[ "$i" -ne "$(( $(echo $database | tr -cd ' ' | wc -c) + 1 ))" ]]
+                then
+                        echo "}," >> config.json
+                else
+                        echo "}" >> config.json
+                fi
+        done
+        echo "]" >> config.json
+        echo "}," >> config.json
+        echo "{" >> config.json
+        echo "name: network" >> config.json
+        echo "cves:" >> config.json
+        echo "[" >> config.json
+        for (( i=1; i<=$(( $(echo $network | tr -cd ' ' | wc -c) + 1 )); i++ ))
+        do
+                echo "{" >> config.json
+                id=$(echo $network | cut -d ' ' -f $i)
+                echo "id: $id," >> config.json
+                os=$(curl -s "https://services.nvd.nist.gov/rest/json/cve/1.0/$id" | jq -r .result.CVE_Items[0].configurations.nodes[0].cpe_match[0].cpe23Uri)
+                echo "os: $(echo $os | cut -d ':' -f 4) $(echo $os | cut -d ':' -f 5)," >> config.json
+                echo "score: $(curl -s "https://services.nvd.nist.gov/rest/json/cve/1.0/$id" | jq -r .result.CVE_Items[0].impact.baseMetricV2.cvssV2.baseScore)," >> config.json
+                echo "publishedDate: $(curl -s "https://services.nvd.nist.gov/rest/json/cve/1.0/$id" | jq -r .result.CVE_Items[0].publishedDate | cut -d 'T' -f 1)" >> config.json
+                if [[ "$i" -ne "$(( $(echo $network | tr -cd ' ' | wc -c) + 1 ))" ]]
+                then
+                        echo "}," >> config.json
+                else
+                        echo "}" >> config.json
+                fi
+        done
+        echo "]" >> config.json
+        echo "}" >> config.json
+        echo "}," >> config.json
+        echo -e "\t[Result] Generated\n\t[Action] Generate output for other machines" >$(tty)
+        echo "otherMachines:" >> config.json
+        echo "[" >> config.json
+        for (( i=1; i<$(( $(echo $left | tr -cd ' ' | wc -c) + 1 )); i++ ))
+        do
+                echo "{" >> config.json
+                echo "name: client${i}" >> config.json
+                echo "cve:" >> config.json
+                echo "{" >> config.json
+                id=$(echo $left | cut -d ' ' -f $i)
+                echo "id: $id," >> config.json
+                os=$(curl -s "https://services.nvd.nist.gov/rest/json/cve/1.0/$id" | jq -r .result.CVE_Items[0].configurations.nodes[0].cpe_match[0].cpe23Uri)
+                echo "os: $(echo $os | cut -d ':' -f 4) $(echo $os | cut -d ':' -f 5)," >> config.json
+                echo "score: $(curl -s "https://services.nvd.nist.gov/rest/json/cve/1.0/$id" | jq -r .result.CVE_Items[0].impact.baseMetricV2.cvssV2.baseScore)," >> config.json
+                echo "publishedDate: $(curl -s "https://services.nvd.nist.gov/rest/json/cve/1.0/$id" | jq -r .result.CVE_Items[0].publishedDate | cut -d 'T' -f 1)" >> config.json
+                echo "}" >> config.json
+                if [[ "$i" -ne "$(( $(echo $left | tr -cd ' ' | wc -c) + 1 ))" ]]
+                then
+                        echo "}," >> config.json
+                else
+                        echo "}" >> config.json
+                fi
+        done
+        echo "]" >> config.json
+        echo "}" >> config.json
+        echo -e "\t[Result] Generated" >$(tty)
+        echo -e "\t[AutomaticLink] Transition" >$(tty)
+        echo -e "[LinkedProcess] ${BOLD}Output Generation END${NONE}" >$(tty)
+
+};
 
 function username () {
         echo "admin"
@@ -810,7 +918,7 @@ function advancedAnalysis () {
         echo -e "[AutomaticLink] Transition\n[LinkedProcess] ${BOLD}Advanced Analysis START${NONE} \t($(date))" >$(tty)
         echo -e "\t[Action] Gathering list of CVEs that was inputed by the user:" >$(tty)
         cveList=$(echo $1 | tr ' ' '\n')
-        echo -e "\t[Result] List of CVEs: $cveList" | tr '\n' ' '
+        echo -e "\t[Result] List of CVEs: $cveList" >$(tty) | tr '\n' ' '
         cveListCount=$(echo $cveList | tr ' ' '\n' | wc -l)
         local linuxCveCountAndList=$(countAndGetLinuxCVEs "$cveListCount" "$cveList")
         linuxCvesDistributed=$(getLinuxCvesForMainComponentsAndNot "$linuxCveCountAndList")
@@ -818,7 +926,7 @@ function advancedAnalysis () {
         linuxCveCount=$(echo $linuxCvesDistributed | cut -d',' -f1)
         linuxCveList=$(echo $linuxCvesDistributed | cut -d',' -f2)
 
-        echo -e "\t[LinkedProcess] ${BOLD}Web Server Linux CVE(-s) Distribution START${NONE}"
+        echo -e "\t[LinkedProcess] ${BOLD}Web Server Linux CVE(-s) Distribution START${NONE}" >$(tty)
         webserverLinuxCvesCount=$(echo $(getRandomNumberWithLimit "$linuxCveCount") | cut -d',' -f1)
         #webserverLinuxCvesCount=2
         result=$(getRandomCvesFromInput "$webserverLinuxCvesCount" "$linuxCveCount" "$linuxCveList" "Web Server")
@@ -847,12 +955,12 @@ function advancedAnalysis () {
         result=$(getRandomCvesFromInput "$linuxCveCount" "$linuxCveCount" "$linuxCveList" "Networking")
         networkingLinuxCves=$(echo $result | cut -d "," -f 1)
         #echo "RESULT: $result"
-        echo -e "\t[LinkedProcess] ${BOLD}Networking Linux CVE(-s) Distribution END${NONE}"
+        echo -e "\t[LinkedProcess] ${BOLD}Networking Linux CVE(-s) Distribution END${NONE}" >$(tty)
 
-        echo -e "\t[AutomaticLink] Transition"
-        echo -e "\t[LinkedProcess] ${BOLD}Advanced Analysis of three main components START${NONE} \t($(date))"
-        echo -e "\t[AutomaticLink] Transition"
-        echo -e "\t\t[LinkedProcess] ${BOLD}Advanced Analysis of the Web Server START${NONE} \t($(date))"
+        echo -e "\t[AutomaticLink] Transition" >$(tty)
+        echo -e "\t[LinkedProcess] ${BOLD}Advanced Analysis of three main components START${NONE} \t($(date))" >$(tty)
+        echo -e "\t[AutomaticLink] Transition" >$(tty)
+        echo -e "\t\t[LinkedProcess] ${BOLD}Advanced Analysis of the Web Server START${NONE} \t($(date))" >$(tty)
         echo -e "\t\t[AutomaticLink] Transition" >$(tty)
         webserverCves=$(assignLinuxCves "$webserverLinuxCvesCount" "$webserverLinuxCves" "Web Server")
         echo -e "\t\t\t[AutomaticLink] Transition" >$(tty)
@@ -864,7 +972,7 @@ function advancedAnalysis () {
         echo -e "\t\t[LinkedProcess] ${BOLD}Advanced Analysis of the Web Server END${NONE}" >$(tty)
         echo -e "\t\t\t[AutomaticLink] Transition" >$(tty)
 
-        echo -e "\t\t[LinkedProcess] ${BOLD}Advanced Analysis of the Database START${NONE} \t($(date))"
+        echo -e "\t\t[LinkedProcess] ${BOLD}Advanced Analysis of the Database START${NONE} \t($(date))" >$(tty)
         echo -e "\t\t[AutomaticLink] Transition" >$(tty)
         databaseCves=$(assignLinuxCves "$databaseLinuxCvesCount" "$databaseLinuxCves" "Database")
         echo -e "\t\t\t[AutomaticLink] Transition" >$(tty)
@@ -874,7 +982,7 @@ function advancedAnalysis () {
         echo -e "\t\t[LinkedProcess] ${BOLD}Advanced Analysis of the Database END${NONE}" >$(tty)
         echo -e "\t\t\t[AutomaticLink] Transition" >$(tty)
 
-        echo -e "\t\t[LinkedProcess] ${BOLD}Advanced Analysis of the Networking START${NONE} \t($(date))"
+        echo -e "\t\t[LinkedProcess] ${BOLD}Advanced Analysis of the Networking START${NONE} \t($(date))" >$(tty)
         echo -e "\t\t[AutomaticLink] Transition" >$(tty)
         networkingCves=$(assignLinuxCves "$linuxCveCount" "$networkingLinuxCves" "Networking")
         echo -e "\t\t\t[AutomaticLink] Transition" >$(tty)
@@ -889,7 +997,8 @@ function advancedAnalysis () {
         echo -e "\t[Action] Merge all CVEs of the Cyber Range" >$(tty)
         result="${webserverCves},${databaseCves},${networkingCves},${otherIds}"
         echo -e "\t[Result] ${GREEN}${BOLD}All CVEs: $result${NONE}" >$(tty)
-
+        echo -e "\t[AutomaticLink] Transition\n[LinkedProcess] ${BOLD}Advanced Analysis END${NONE}" >$(tty)
+        echo $result
 };
 
 function main () {
@@ -902,27 +1011,14 @@ function main () {
         then
                 echo -e "${RED}[Alert] Exiting...${NONE}"
         else
-                advancedAnalysis "$userCveList"
+                result=$(advancedAnalysis "$userCveList")
         fi
-
-
-
-        #VM Data expose
-                #for (( i=0; i<${instancesCount}; i++ ))
-                #do
-                #       echo -e "\n -------------------------------"
-                #        echo -e "| $( expr $i + 1 ). Instance\t\t\t|"
-                #        echo -e "|       CVE: ${RED}${instances[$i,'id']}${NONE}\t|"
-                #        echo -e "|       OS: ${RED}${instances[$i,'os']}${NONE}\t\t|"
-                #        echo -e "|       Version: ${RED}${instances[$i,'version']}${NONE}\t\t|"
-                #        echo -e "|       Username: ${RED}${instances[$i,'user']}${NONE}\t\t|"
-                #        echo -e "|       Password: ${RED}${instances[$i,'pass']}${NONE}   \t|"
-                #        echo -e " -------------------------------"
-                #done
-                #echo -e "\nAll array members: ${allIndexes[@]}"
-                #echo "Is only Windows? "; if (( $(isOnlyWindows "${allOSes[@]}") == 0 )); then echo "Yes"; else echo "No"; fi;
-                #echo "Is only Linux? "; if (( $(isOnlyLinux "${allOSes[@]}") == 0 )); then echo "Yes"; else echo "No"; fi;
+        if [ -z "$result" ]
+        then
+                echo -e "${RED}[Alert] Exiting...${NONE}"
+        else
+                outputGeneration "$result"
+        fi
 };
 
-#checkIfJqIsAvailable
 main
